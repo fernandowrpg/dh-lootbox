@@ -56,7 +56,16 @@ prontos e arrastáveis para a ficha do personagem.
    hotbar do mestre na primeira vez que o mundo carrega com o módulo ativo.
    Clique nele (ou execute `game.modules.get('dh-lootbox').api.openChestDialog()`
    num macro de script/console).
-2. Escolha o **Tier** do baú (1 a 4). Os campos de quantidade de itens,
+2. Escolha o **Tier** do baú (1 a 4) e a **distribuição de dados**:
+   - *Uniforme (dado único)* — ex.: `1d12` no Tier 1 — dá chance igual pra
+     cada item daquela faixa de raridade e nunca ultrapassa esse teto.
+   - *Curva de sino (múltiplos dados)* — ex.: `2d12` no Tier 1 — favorece
+     resultados do meio da faixa, mas às vezes alcança um pouco a raridade
+     seguinte. É a mesma fórmula padrão que as RollTables oficiais do sistema
+     Daggerheart já trazem, e é a opção selecionada por padrão.
+
+   As duas opções vêm direto das regras do site (por exemplo, o Tier 1/Comum
+   permite explicitamente `1d12 ou 2d12`). Os campos de quantidade de itens,
    consumíveis, e as caixas de "incluir equipamento"/"incluir ouro" já vêm
    preenchidos com uma sugestão padrão para aquele Tier, mas podem ser
    ajustados livremente antes de confirmar.

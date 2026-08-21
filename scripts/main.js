@@ -18,11 +18,15 @@
 const MODULE_ID = 'dh-lootbox';
 const CHEST_ICON = 'systems/daggerheart/assets/icons/documents/items/open-treasure-chest.svg';
 
-/** Suggested default configuration for each Tier, per the site's tables. */
+/** Suggested default configuration for each Tier, per the site's tables.
+ *  Each tier has two valid dice options (per https://daggerheart.org/core-mechanics/loot):
+ *  a "uniform" single die (flat odds, capped at that rarity's range) and a
+ *  "bellCurve" multi-dice sum (weighted toward the middle, extends slightly
+ *  into the next rarity's range). The GM picks which one to use per chest. */
 const TIER_DEFAULTS = {
     1: {
         rarityName: 'Common',
-        fallbackFormula: '2d12',
+        diceOptions: { uniform: '1d12', bellCurve: '2d12' },
         lootCount: 1,
         consumableCount: 1,
         defaultIncludeEquipment: false,
@@ -30,7 +34,7 @@ const TIER_DEFAULTS = {
     },
     2: {
         rarityName: 'Uncommon',
-        fallbackFormula: '3d12',
+        diceOptions: { uniform: '2d12', bellCurve: '3d12' },
         lootCount: 2,
         consumableCount: 2,
         defaultIncludeEquipment: true,
@@ -38,7 +42,7 @@ const TIER_DEFAULTS = {
     },
     3: {
         rarityName: 'Rare',
-        fallbackFormula: '4d12',
+        diceOptions: { uniform: '3d12', bellCurve: '4d12' },
         lootCount: 2,
         consumableCount: 3,
         defaultIncludeEquipment: true,
@@ -46,13 +50,22 @@ const TIER_DEFAULTS = {
     },
     4: {
         rarityName: 'Legendary',
-        fallbackFormula: '5d12',
+        diceOptions: { uniform: '4d12', bellCurve: '5d12' },
         lootCount: 3,
         consumableCount: 3,
         defaultIncludeEquipment: true,
         goldFormula: { chests: '1d2' }
     }
 };
+
+const DEFAULT_DICE_MODE = 'bellCurve';
+
+/** Resolves the actual dice formula for a Tier + dice mode ('uniform' | 'bellCurve'). */
+function getDiceFormula(tier, diceMode) {
+    const cfg = TIER_DEFAULTS[tier];
+    if (!cfg) return null;
+    return cfg.diceOptions[diceMode] ?? cfg.diceOptions[DEFAULT_DICE_MODE];
+}
 
 /** Localized display name for a rarity (matches the RollTable's alt-formula names). */
 function getRarityLabel(rarityName) {
@@ -131,16 +144,6 @@ async function getRollTableByName(name) {
     return pack.getDocument(entry._id);
 }
 
-/** Resolves the dice formula for a named rarity on a RollTable, using the
- *  alternate formulas (altFormula) the system itself already defines. */
-function getFormulaForRarity(table, rarityName, fallbackFormula) {
-    const flag = table.flags?.daggerheart;
-    if (!flag) return fallbackFormula;
-    if (flag.formulaName === rarityName) return table.formula;
-    const alt = Object.values(flag.altFormula ?? {}).find(f => f.name === rarityName);
-    return alt?.formula ?? fallbackFormula;
-}
-
 async function rollFormula(formula) {
     const roll = new Roll(String(formula));
     await roll.evaluate();
@@ -199,12 +202,16 @@ async function getOrCreateChestFolder() {
  * @param {number} [opts.consumableCount]   How many consumables to roll
  * @param {boolean} [opts.includeEquipment] Rolls 1 weapon/armor of the Tier
  * @param {boolean} [opts.includeGold]      Rolls gold based on the Tier
+ * @param {'uniform'|'bellCurve'} [opts.diceMode] Which dice option to use for this Tier's rarity
  * @returns {Promise<Actor>}
  */
 async function generateLootChest(opts) {
     const tier = Number(opts.tier) || 1;
     const cfg = TIER_DEFAULTS[tier];
     if (!cfg) throw new Error(game.i18n.format('DHLOOTBOX.Errors.InvalidTier', { tier }));
+
+    const diceMode = opts.diceMode === 'uniform' ? 'uniform' : DEFAULT_DICE_MODE;
+    const formula = getDiceFormula(tier, diceMode);
 
     const lootCount = Number.isFinite(opts.lootCount) ? opts.lootCount : cfg.lootCount;
     const consumableCount = Number.isFinite(opts.consumableCount) ? opts.consumableCount : cfg.consumableCount;
@@ -215,12 +222,9 @@ async function generateLootChest(opts) {
     const lootTable = await getRollTableByName('Loot');
     const consumablesTable = await getRollTableByName('Consumables');
 
-    const lootFormula = getFormulaForRarity(lootTable, cfg.rarityName, cfg.fallbackFormula);
-    const consumableFormula = getFormulaForRarity(consumablesTable, cfg.rarityName, cfg.fallbackFormula);
-
-    const lootDocs = lootCount > 0 ? await drawFromTable(lootTable, lootFormula, lootCount) : [];
+    const lootDocs = lootCount > 0 ? await drawFromTable(lootTable, formula, lootCount) : [];
     const consumableDocs =
-        consumableCount > 0 ? await drawFromTable(consumablesTable, consumableFormula, consumableCount) : [];
+        consumableCount > 0 ? await drawFromTable(consumablesTable, formula, consumableCount) : [];
 
     const equipmentDocs = [];
     if (includeEquipment) {
@@ -265,11 +269,20 @@ async function generateLootChest(opts) {
         }
     });
 
-    await whisperChestSummaryToGM(actor, { tier, cfg, lootDocs, consumableDocs, equipmentDocs, gold, includeGold });
+    await whisperChestSummaryToGM(actor, {
+        tier,
+        cfg,
+        formula,
+        lootDocs,
+        consumableDocs,
+        equipmentDocs,
+        gold,
+        includeGold
+    });
     return actor;
 }
 
-async function whisperChestSummaryToGM(actor, { tier, cfg, lootDocs, consumableDocs, equipmentDocs, gold, includeGold }) {
+async function whisperChestSummaryToGM(actor, { tier, cfg, formula, lootDocs, consumableDocs, equipmentDocs, gold, includeGold }) {
     const listItems = docs => docs.map(d => `<li>${d.name}</li>`).join('');
     const goldParts = [];
     if (includeGold) {
@@ -279,7 +292,11 @@ async function whisperChestSummaryToGM(actor, { tier, cfg, lootDocs, consumableD
         if (gold.coins) goldParts.push(game.i18n.format('DHLOOTBOX.Summary.GoldCoins', { count: gold.coins }));
     }
 
-    const tierLine = game.i18n.format('DHLOOTBOX.Summary.TierLine', { tier, rarity: getRarityLabel(cfg.rarityName) });
+    const tierLine = game.i18n.format('DHLOOTBOX.Summary.TierLine', {
+        tier,
+        rarity: getRarityLabel(cfg.rarityName),
+        formula
+    });
 
     const content = `
         <div class="daggerheart-loot-chest-summary">
@@ -349,6 +366,15 @@ function buildDialogContent() {
             </select>
         </div>
         <div class="form-group">
+            <label>${L('DiceModeLabel')}</label>
+            <select name="diceMode">
+                <option value="bellCurve">${L('DiceModeBellCurve')}</option>
+                <option value="uniform">${L('DiceModeUniform')}</option>
+            </select>
+        </div>
+        <p class="hint dice-formula-preview"></p>
+        <p class="hint">${L('DiceModeHint')}</p>
+        <div class="form-group">
             <label>${L('NameLabel')}</label>
             <input type="text" name="name" placeholder="${getDefaultChestName(1)}">
         </div>
@@ -385,11 +411,22 @@ function wireDialogDefaults(rootElement) {
     if (!container) return;
 
     const tierSelect = container.querySelector('[name="tier"]');
+    const diceModeSelect = container.querySelector('[name="diceMode"]');
     const nameInput = container.querySelector('[name="name"]');
     const lootInput = container.querySelector('[name="lootCount"]');
     const consInput = container.querySelector('[name="consumableCount"]');
     const equipInput = container.querySelector('[name="includeEquipment"]');
+    const formulaPreview = container.querySelector('.dice-formula-preview');
     if (!tierSelect) return;
+
+    const updateFormulaPreview = () => {
+        if (!formulaPreview) return;
+        const tier = Number(tierSelect.value);
+        const formula = getDiceFormula(tier, diceModeSelect.value);
+        if (formula) {
+            formulaPreview.textContent = game.i18n.format('DHLOOTBOX.Dialog.DiceFormulaPreview', { formula });
+        }
+    };
 
     const applyDefaults = () => {
         const tier = Number(tierSelect.value);
@@ -401,9 +438,11 @@ function wireDialogDefaults(rootElement) {
         if (!nameInput.dataset.userEdited) {
             nameInput.value = getDefaultChestName(tier);
         }
+        updateFormulaPreview();
     };
 
     tierSelect.addEventListener('change', applyDefaults);
+    diceModeSelect.addEventListener('change', updateFormulaPreview);
     nameInput.addEventListener('input', () => {
         nameInput.dataset.userEdited = 'true';
     });
@@ -431,6 +470,7 @@ async function openChestDialog() {
                         const form = button.form;
                         return {
                             tier: Number(form.elements.tier.value),
+                            diceMode: form.elements.diceMode.value,
                             name: form.elements.name.value,
                             quantity: Math.max(1, Number(form.elements.quantity.value) || 1),
                             lootCount: Number(form.elements.lootCount.value) || 0,
@@ -505,6 +545,7 @@ Hooks.once('ready', async () => {
         openChestDialog,
         generateLootChest,
         placeChestOnCurrentScene,
+        getDiceFormula,
         TIER_DEFAULTS
     };
 

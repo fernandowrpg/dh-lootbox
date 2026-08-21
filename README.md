@@ -56,9 +56,18 @@ arrive ready to drag onto a character sheet.
    the GM's hotbar the first time the world loads with the module active.
    Click it (or run `game.modules.get('dh-lootbox').api.openChestDialog()`
    from a script macro/console).
-2. Choose the chest's **Tier** (1 to 4). The item/consumable counts and the
-   "include equipment"/"include gold" checkboxes are pre-filled with a
-   sensible default for that Tier, but can be freely adjusted before
+2. Choose the chest's **Tier** (1 to 4) and the **dice distribution**:
+   - *Uniform (single die)* — e.g. `1d12` for Tier 1 — gives every item in that
+     rarity's range an equal chance and never exceeds it.
+   - *Bell curve (multiple dice)* — e.g. `2d12` for Tier 1 — favors results in
+     the middle of the range, but can occasionally reach a bit into the next
+     rarity up. This matches the default formulas the Daggerheart system's own
+     RollTables ship with, and is selected by default.
+
+   Both options come straight from the site's rules (for example, Tier 1 /
+   Common explicitly allows `1d12 or 2d12`). The item/consumable counts and
+   the "include equipment"/"include gold" checkboxes are pre-filled with a
+   sensible default for the selected Tier, but can be freely adjusted before
    confirming.
 3. Check **"Automatically place at the center of the current scene"** if you
    want the chest to immediately show up as a token on the open scene — or
