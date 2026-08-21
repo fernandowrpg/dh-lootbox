@@ -1,28 +1,27 @@
 /**
- * Baús de Loot — Daggerheart
+ * Loot Chests — Daggerheart
  * ---------------------------------------------------------------------------
- * Gera baús de loot (Actors do tipo "party" reaproveitados como contêineres)
- * seguindo as regras de geração por tier/raridade descritas em
- * https://daggerheart.org/core-mechanics/loot e https://daggerheart.org/core-mechanics/consumables,
- * usando as RollTables e compêndios oficiais que já vêm com o sistema Daggerheart
+ * Generates loot chests (Actors of type "party" reused as containers) following
+ * the tier/rarity loot generation rules described at
+ * https://daggerheart.org/core-mechanics/loot and /consumables, using the
+ * RollTables and compendiums that already ship with the Daggerheart system
  * (packs: daggerheart.rolltables, daggerheart.loot, daggerheart.consumables,
  * daggerheart.weapons, daggerheart.armors).
  *
- * Os itens sorteados são cópias reais dos documentos do compêndio, então já
- * chegam prontos para ser arrastados para a ficha de um personagem — o próprio
- * sistema Daggerheart já sabe transferir itens (e ouro) por drag-and-drop entre
- * um Actor "party" e um Actor "character", então isso é reaproveitado como o
- * mecanismo de "abrir o baú e pegar o item".
+ * The rolled items are real compendium documents, so they arrive ready to be
+ * dragged onto a character sheet — the Daggerheart system already knows how to
+ * transfer items (and gold) via drag-and-drop between a "party" Actor and a
+ * "character" Actor, so that is reused here as the "open the chest and take
+ * the item" mechanism.
  */
 
 const MODULE_ID = 'dh-lootbox';
 const CHEST_ICON = 'systems/daggerheart/assets/icons/documents/items/open-treasure-chest.svg';
 
-/** Configuração padrão sugerida para cada Tier, conforme as tabelas do site. */
+/** Suggested default configuration for each Tier, per the site's tables. */
 const TIER_DEFAULTS = {
     1: {
         rarityName: 'Common',
-        rarityLabel: 'Comum',
         fallbackFormula: '2d12',
         lootCount: 1,
         consumableCount: 1,
@@ -31,7 +30,6 @@ const TIER_DEFAULTS = {
     },
     2: {
         rarityName: 'Uncommon',
-        rarityLabel: 'Incomum',
         fallbackFormula: '3d12',
         lootCount: 2,
         consumableCount: 2,
@@ -40,7 +38,6 @@ const TIER_DEFAULTS = {
     },
     3: {
         rarityName: 'Rare',
-        rarityLabel: 'Raro',
         fallbackFormula: '4d12',
         lootCount: 2,
         consumableCount: 3,
@@ -49,7 +46,6 @@ const TIER_DEFAULTS = {
     },
     4: {
         rarityName: 'Legendary',
-        rarityLabel: 'Lendário',
         fallbackFormula: '5d12',
         lootCount: 3,
         consumableCount: 3,
@@ -58,8 +54,20 @@ const TIER_DEFAULTS = {
     }
 };
 
+/** Localized display name for a rarity (matches the RollTable's alt-formula names). */
+function getRarityLabel(rarityName) {
+    return game.i18n.localize(`DHLOOTBOX.Rarity.${rarityName}`);
+}
+
+/** Localized default chest name for a given Tier, e.g. "Chest — Tier 2 (Uncommon)". */
+function getDefaultChestName(tier) {
+    const cfg = TIER_DEFAULTS[tier];
+    if (!cfg) return game.i18n.localize('DHLOOTBOX.DefaultChestHeaderFallback');
+    return game.i18n.format('DHLOOTBOX.DefaultChestName', { tier, rarity: getRarityLabel(cfg.rarityName) });
+}
+
 /* -------------------------------------------------------------------------- */
-/*  Ficha customizada do baú (reaproveita a ficha "Party" do sistema)         */
+/*  Chest sheet (reuses the system's "Party" sheet)                          */
 /* -------------------------------------------------------------------------- */
 
 function registerChestSheet() {
@@ -73,8 +81,8 @@ function registerChestSheet() {
             { inplace: false }
         );
 
-        /* Só reaproveitamos cabeçalho + navegação de abas + inventário.
-           As abas de membros do grupo / descanso / notas não fazem sentido para um baú. */
+        /* We only reuse header + tab navigation + inventory.
+           The party-members / rest / notes tabs don't make sense for a chest. */
         static PARTS = {
             header: { template: `modules/${MODULE_ID}/templates/chest-header.hbs` },
             tabs: Party.PARTS.tabs,
@@ -93,8 +101,9 @@ function registerChestSheet() {
             context = await super._preparePartContext(partId, context, options);
             if (partId === 'header') {
                 const tier = this.document.getFlag(MODULE_ID, 'tier');
-                const cfg = TIER_DEFAULTS[tier];
-                context.tierLabel = cfg ? `Baú — Tier ${tier} (${cfg.rarityLabel})` : 'Baú de Loot';
+                context.tierLabel = tier
+                    ? getDefaultChestName(tier)
+                    : game.i18n.localize('DHLOOTBOX.DefaultChestHeaderFallback');
             }
             return context;
         }
@@ -103,27 +112,27 @@ function registerChestSheet() {
     Actors.registerSheet(MODULE_ID, LootChestSheet, {
         types: ['party'],
         makeDefault: false,
-        label: 'Baú de Loot (Daggerheart)'
+        label: () => game.i18n.localize('DHLOOTBOX.SheetLabel')
     });
 
     return LootChestSheet;
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Utilitários de sorteio                                                    */
+/*  Roll utilities                                                            */
 /* -------------------------------------------------------------------------- */
 
 async function getRollTableByName(name) {
     const pack = game.packs.get('daggerheart.rolltables');
-    if (!pack) throw new Error('Compêndio "daggerheart.rolltables" não encontrado. O sistema Daggerheart está ativo?');
+    if (!pack) throw new Error(game.i18n.format('DHLOOTBOX.Errors.PackNotFound', { pack: 'daggerheart.rolltables' }));
     const index = await pack.getIndex();
     const entry = index.find(e => e.name === name);
-    if (!entry) throw new Error(`RollTable "${name}" não encontrada no compêndio de rolltables do Daggerheart.`);
+    if (!entry) throw new Error(game.i18n.format('DHLOOTBOX.Errors.TableNotFound', { name }));
     return pack.getDocument(entry._id);
 }
 
-/** Resolve a fórmula de dados correspondente a uma raridade nomeada na RollTable,
- *  usando as fórmulas alternativas (altFormula) que o próprio sistema já define. */
+/** Resolves the dice formula for a named rarity on a RollTable, using the
+ *  alternate formulas (altFormula) the system itself already defines. */
 function getFormulaForRarity(table, rarityName, fallbackFormula) {
     const flag = table.flags?.daggerheart;
     if (!flag) return fallbackFormula;
@@ -138,8 +147,8 @@ async function rollFormula(formula) {
     return roll.total;
 }
 
-/** Sorteia `count` vezes numa RollTable com a fórmula indicada e retorna os
- *  documentos de Item reais (do compêndio) referenciados pelos resultados. */
+/** Rolls `count` times on a RollTable using the given formula and returns the
+ *  real Item documents (from the compendium) referenced by the results. */
 async function drawFromTable(table, formula, count) {
     const drawn = [];
     for (let i = 0; i < count; i++) {
@@ -154,7 +163,7 @@ async function drawFromTable(table, formula, count) {
     return drawn;
 }
 
-/** Sorteia uma arma ou armadura aleatória (50/50) filtrando pelo Tier do baú. */
+/** Rolls a random weapon or armor (50/50), filtered to the chest's Tier. */
 async function drawEquipment(tier) {
     const packNames = ['daggerheart.weapons', 'daggerheart.armors'];
     const chosenPackName = packNames[Math.floor(Math.random() * packNames.length)];
@@ -170,37 +179,38 @@ async function drawEquipment(tier) {
 }
 
 async function getOrCreateChestFolder() {
-    let folder = game.folders.find(f => f.name === 'Baús de Loot' && f.type === 'Actor');
+    const folderName = game.i18n.localize('DHLOOTBOX.FolderName');
+    let folder = game.folders.find(f => f.name === folderName && f.type === 'Actor');
     if (!folder) {
-        folder = await Folder.create({ name: 'Baús de Loot', type: 'Actor', color: '#b8860b' });
+        folder = await Folder.create({ name: folderName, type: 'Actor', color: '#b8860b' });
     }
     return folder;
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Geração do baú                                                            */
+/*  Chest generation                                                          */
 /* -------------------------------------------------------------------------- */
 
 /**
  * @param {object} opts
- * @param {number} opts.tier               Tier do baú (1 a 4)
- * @param {string} [opts.name]              Nome do Actor gerado
- * @param {number} [opts.lootCount]         Quantos itens da tabela "Loot" sortear
- * @param {number} [opts.consumableCount]   Quantos consumíveis sortear
- * @param {boolean} [opts.includeEquipment] Sorteia 1 arma/armadura do Tier
- * @param {boolean} [opts.includeGold]      Sorteia ouro conforme o Tier
+ * @param {number} opts.tier               Chest Tier (1 to 4)
+ * @param {string} [opts.name]              Name for the generated Actor
+ * @param {number} [opts.lootCount]         How many items to roll on the "Loot" table
+ * @param {number} [opts.consumableCount]   How many consumables to roll
+ * @param {boolean} [opts.includeEquipment] Rolls 1 weapon/armor of the Tier
+ * @param {boolean} [opts.includeGold]      Rolls gold based on the Tier
  * @returns {Promise<Actor>}
  */
 async function generateLootChest(opts) {
     const tier = Number(opts.tier) || 1;
     const cfg = TIER_DEFAULTS[tier];
-    if (!cfg) throw new Error(`Tier inválido: ${tier}`);
+    if (!cfg) throw new Error(game.i18n.format('DHLOOTBOX.Errors.InvalidTier', { tier }));
 
     const lootCount = Number.isFinite(opts.lootCount) ? opts.lootCount : cfg.lootCount;
     const consumableCount = Number.isFinite(opts.consumableCount) ? opts.consumableCount : cfg.consumableCount;
     const includeEquipment = opts.includeEquipment ?? cfg.defaultIncludeEquipment;
     const includeGold = opts.includeGold ?? true;
-    const name = opts.name?.trim() || `Baú — Tier ${tier} (${cfg.rarityLabel})`;
+    const name = opts.name?.trim() || getDefaultChestName(tier);
 
     const lootTable = await getRollTableByName('Loot');
     const consumablesTable = await getRollTableByName('Consumables');
@@ -209,7 +219,8 @@ async function generateLootChest(opts) {
     const consumableFormula = getFormulaForRarity(consumablesTable, cfg.rarityName, cfg.fallbackFormula);
 
     const lootDocs = lootCount > 0 ? await drawFromTable(lootTable, lootFormula, lootCount) : [];
-    const consumableDocs = consumableCount > 0 ? await drawFromTable(consumablesTable, consumableFormula, consumableCount) : [];
+    const consumableDocs =
+        consumableCount > 0 ? await drawFromTable(consumablesTable, consumableFormula, consumableCount) : [];
 
     const equipmentDocs = [];
     if (includeEquipment) {
@@ -220,7 +231,7 @@ async function generateLootChest(opts) {
     const allDocs = [...lootDocs, ...consumableDocs, ...equipmentDocs];
     const itemsData = allDocs.map(doc => {
         const data = doc.toObject();
-        delete data._id; // evita colisão de id se o mesmo item sortear mais de uma vez
+        delete data._id; // avoid id collisions if the same item is rolled more than once
         return data;
     });
 
@@ -262,39 +273,39 @@ async function whisperChestSummaryToGM(actor, { tier, cfg, lootDocs, consumableD
     const listItems = docs => docs.map(d => `<li>${d.name}</li>`).join('');
     const goldParts = [];
     if (includeGold) {
-        if (gold.chests) goldParts.push(`${gold.chests} baú(s) de ouro`);
-        if (gold.bags) goldParts.push(`${gold.bags} saco(s)`);
-        if (gold.handfuls) goldParts.push(`${gold.handfuls} punhado(s)`);
-        if (gold.coins) goldParts.push(`${gold.coins} moeda(s)`);
+        if (gold.chests) goldParts.push(game.i18n.format('DHLOOTBOX.Summary.GoldChests', { count: gold.chests }));
+        if (gold.bags) goldParts.push(game.i18n.format('DHLOOTBOX.Summary.GoldBags', { count: gold.bags }));
+        if (gold.handfuls) goldParts.push(game.i18n.format('DHLOOTBOX.Summary.GoldHandfuls', { count: gold.handfuls }));
+        if (gold.coins) goldParts.push(game.i18n.format('DHLOOTBOX.Summary.GoldCoins', { count: gold.coins }));
     }
+
+    const tierLine = game.i18n.format('DHLOOTBOX.Summary.TierLine', { tier, rarity: getRarityLabel(cfg.rarityName) });
 
     const content = `
         <div class="daggerheart-loot-chest-summary">
             <h3>🎁 ${actor.name}</h3>
-            <p><strong>Tier ${tier} — ${cfg.rarityLabel}</strong></p>
-            ${lootDocs.length ? `<p><strong>Itens:</strong></p><ul>${listItems(lootDocs)}</ul>` : ''}
-            ${consumableDocs.length ? `<p><strong>Consumíveis:</strong></p><ul>${listItems(consumableDocs)}</ul>` : ''}
-            ${equipmentDocs.length ? `<p><strong>Equipamento:</strong></p><ul>${listItems(equipmentDocs)}</ul>` : ''}
-            ${goldParts.length ? `<p><strong>Ouro:</strong> ${goldParts.join(', ')}</p>` : ''}
+            <p><strong>${tierLine}</strong></p>
+            ${lootDocs.length ? `<p><strong>${game.i18n.localize('DHLOOTBOX.Summary.Items')}</strong></p><ul>${listItems(lootDocs)}</ul>` : ''}
+            ${consumableDocs.length ? `<p><strong>${game.i18n.localize('DHLOOTBOX.Summary.Consumables')}</strong></p><ul>${listItems(consumableDocs)}</ul>` : ''}
+            ${equipmentDocs.length ? `<p><strong>${game.i18n.localize('DHLOOTBOX.Summary.Equipment')}</strong></p><ul>${listItems(equipmentDocs)}</ul>` : ''}
+            ${goldParts.length ? `<p><strong>${game.i18n.localize('DHLOOTBOX.Summary.Gold')}</strong> ${goldParts.join(', ')}</p>` : ''}
         </div>
     `;
 
     await ChatMessage.create({
         content,
         whisper: ChatMessage.getWhisperRecipients('GM').map(u => u.id),
-        speaker: { alias: 'Gerador de Baús' }
+        speaker: { alias: game.i18n.localize('DHLOOTBOX.Summary.SpeakerAlias') }
     });
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Posicionamento no mapa                                                    */
+/*  Placing the chest on the map                                              */
 /* -------------------------------------------------------------------------- */
 
 async function placeChestOnCurrentScene(actor, offsetIndex = 0) {
     if (!canvas.ready || !canvas.scene) {
-        ui.notifications.warn(
-            `Baú "${actor.name}" criado, mas nenhuma cena está aberta. Arraste-o da barra de Atores para o mapa quando quiser.`
-        );
+        ui.notifications.warn(game.i18n.format('DHLOOTBOX.Notifications.NoActiveScene', { name: actor.name }));
         return;
     }
 
@@ -317,55 +328,53 @@ async function placeChestOnCurrentScene(actor, offsetIndex = 0) {
     }
 
     await canvas.scene.createEmbeddedDocuments('Token', [tokenObject]);
-    ui.notifications.info(`Baú "${actor.name}" posicionado na cena atual.`);
+    ui.notifications.info(game.i18n.format('DHLOOTBOX.Notifications.ChestPlaced', { name: actor.name }));
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Diálogo de criação                                                        */
+/*  Generation dialog                                                         */
 /* -------------------------------------------------------------------------- */
 
 function buildDialogContent() {
+    const L = key => game.i18n.localize(`DHLOOTBOX.Dialog.${key}`);
     return `
     <div class="daggerheart-loot-chest-dialog">
         <div class="form-group">
-            <label>Tier do baú</label>
+            <label>${L('TierLabel')}</label>
             <select name="tier">
-                <option value="1">Tier 1 — Comum</option>
-                <option value="2">Tier 2 — Incomum</option>
-                <option value="3">Tier 3 — Raro</option>
-                <option value="4">Tier 4 — Lendário</option>
+                <option value="1">${L('Tier1')}</option>
+                <option value="2">${L('Tier2')}</option>
+                <option value="3">${L('Tier3')}</option>
+                <option value="4">${L('Tier4')}</option>
             </select>
         </div>
         <div class="form-group">
-            <label>Nome do baú</label>
-            <input type="text" name="name" placeholder="Baú — Tier 1 (Comum)">
+            <label>${L('NameLabel')}</label>
+            <input type="text" name="name" placeholder="${getDefaultChestName(1)}">
         </div>
         <div class="form-group">
-            <label>Quantidade de baús a criar</label>
+            <label>${L('QuantityLabel')}</label>
             <input type="number" name="quantity" value="1" min="1" max="10" step="1">
         </div>
         <hr>
         <div class="form-group">
-            <label>Itens sorteados na tabela "Loot"</label>
+            <label>${L('LootCountLabel')}</label>
             <input type="number" name="lootCount" min="0" max="10" step="1">
         </div>
         <div class="form-group">
-            <label>Consumíveis sorteados</label>
+            <label>${L('ConsumableCountLabel')}</label>
             <input type="number" name="consumableCount" min="0" max="10" step="1">
         </div>
         <div class="form-group form-group-checkbox">
-            <label><input type="checkbox" name="includeEquipment"> Incluir 1 arma/armadura aleatória do Tier</label>
+            <label><input type="checkbox" name="includeEquipment"> ${L('IncludeEquipmentLabel')}</label>
         </div>
         <div class="form-group form-group-checkbox">
-            <label><input type="checkbox" name="includeGold" checked> Incluir ouro (conforme o Tier)</label>
+            <label><input type="checkbox" name="includeGold" checked> ${L('IncludeGoldLabel')}</label>
         </div>
         <div class="form-group form-group-checkbox">
-            <label><input type="checkbox" name="placeOnScene"> Posicionar automaticamente no centro da cena atual</label>
+            <label><input type="checkbox" name="placeOnScene"> ${L('PlaceOnSceneLabel')}</label>
         </div>
-        <p class="hint">
-            Dica: os valores acima são preenchidos com a sugestão padrão para o Tier escolhido,
-            mas podem ser ajustados livremente antes de gerar.
-        </p>
+        <p class="hint">${L('Hint')}</p>
     </div>`;
 }
 
@@ -390,7 +399,7 @@ function wireDialogDefaults(rootElement) {
         consInput.value = cfg.consumableCount;
         equipInput.checked = cfg.defaultIncludeEquipment;
         if (!nameInput.dataset.userEdited) {
-            nameInput.value = `Baú — Tier ${tier} (${cfg.rarityLabel})`;
+            nameInput.value = getDefaultChestName(tier);
         }
     };
 
@@ -403,19 +412,19 @@ function wireDialogDefaults(rootElement) {
 
 async function openChestDialog() {
     if (!game.user.isGM) {
-        ui.notifications.warn('Somente o mestre pode gerar baús de loot.');
+        ui.notifications.warn(game.i18n.localize('DHLOOTBOX.Notifications.OnlyGM'));
         return;
     }
 
     let formResult;
     try {
         formResult = await foundry.applications.api.DialogV2.wait({
-            window: { title: 'Gerar Baú de Loot — Daggerheart', icon: 'fa-solid fa-treasure-chest' },
+            window: { title: game.i18n.localize('DHLOOTBOX.Dialog.Title'), icon: 'fa-solid fa-treasure-chest' },
             content: buildDialogContent(),
             buttons: [
                 {
                     action: 'generate',
-                    label: 'Gerar Baú(s)',
+                    label: game.i18n.localize('DHLOOTBOX.Dialog.GenerateButton'),
                     icon: 'fa-solid fa-treasure-chest',
                     default: true,
                     callback: (_event, button) => {
@@ -432,23 +441,24 @@ async function openChestDialog() {
                         };
                     }
                 },
-                { action: 'cancel', label: 'Cancelar', icon: 'fa-solid fa-xmark' }
+                { action: 'cancel', label: game.i18n.localize('DHLOOTBOX.Dialog.CancelButton'), icon: 'fa-solid fa-xmark' }
             ],
             rejectClose: false,
             render: (_event, element) => {
                 try {
                     wireDialogDefaults(element);
                 } catch (err) {
-                    console.warn(`${MODULE_ID} | Não foi possível preencher os padrões do diálogo`, err);
+                    console.warn(`${MODULE_ID} | Could not pre-fill dialog defaults`, err);
                 }
             }
         });
     } catch (err) {
-        console.error(`${MODULE_ID} | Erro ao abrir o diálogo`, err);
+        console.error(`${MODULE_ID} | Error opening dialog`, err);
+        ui.notifications.error(game.i18n.localize('DHLOOTBOX.Errors.DialogFailed'));
         return;
     }
 
-    if (!formResult) return; // cancelado
+    if (!formResult) return; // cancelled
 
     const createdActors = [];
     for (let i = 0; i < formResult.quantity; i++) {
@@ -461,20 +471,18 @@ async function openChestDialog() {
                 await placeChestOnCurrentScene(actor, i);
             }
         } catch (err) {
-            console.error(`${MODULE_ID} | Erro ao gerar baú`, err);
-            ui.notifications.error(`Erro ao gerar baú: ${err.message}`);
+            console.error(`${MODULE_ID} | Error generating chest`, err);
+            ui.notifications.error(game.i18n.format('DHLOOTBOX.Errors.GenerateFailed', { error: err.message }));
         }
     }
 
     if (createdActors.length) {
-        ui.notifications.info(
-            `${createdActors.length} baú(s) gerado(s) com sucesso. Confira o resumo na aba de chat (visível só para o mestre).`
-        );
+        ui.notifications.info(game.i18n.format('DHLOOTBOX.Notifications.ChestsGenerated', { count: createdActors.length }));
     }
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Registro do módulo                                                        */
+/*  Module registration                                                       */
 /* -------------------------------------------------------------------------- */
 
 Hooks.once('init', () => {
@@ -488,8 +496,8 @@ Hooks.once('ready', async () => {
     const moduleData = game.modules.get(MODULE_ID);
     if (!moduleData) {
         console.error(
-            `${MODULE_ID} | Não encontrei o módulo em game.modules.get('${MODULE_ID}'). ` +
-                `Verifique se a pasta em Data/modules tem exatamente esse nome e se o campo "id" do module.json é "${MODULE_ID}".`
+            `${MODULE_ID} | Could not find the module via game.modules.get('${MODULE_ID}'). ` +
+                `Check that the folder in Data/modules is named exactly that, and that module.json's "id" field is "${MODULE_ID}".`
         );
         return;
     }
@@ -500,8 +508,8 @@ Hooks.once('ready', async () => {
         TIER_DEFAULTS
     };
 
-    // Cria (uma única vez) um macro de conveniência na hotbar do mestre.
-    const macroName = '🎁 Gerar Baú de Loot';
+    // Create (once) a convenience macro on the GM's hotbar.
+    const macroName = game.i18n.localize('DHLOOTBOX.MacroName');
     let macro = game.macros.find(m => m.name === macroName);
     if (!macro) {
         macro = await Macro.create({

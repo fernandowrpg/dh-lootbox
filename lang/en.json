@@ -1,0 +1,58 @@
+{
+    "DHLOOTBOX": {
+        "SheetLabel": "Loot Chest (Daggerheart)",
+        "FolderName": "Loot Chests",
+        "MacroName": "🎁 Generate Loot Chest",
+        "DefaultChestName": "Chest — Tier {tier} ({rarity})",
+        "DefaultChestHeaderFallback": "Loot Chest",
+        "Rarity": {
+            "Common": "Common",
+            "Uncommon": "Uncommon",
+            "Rare": "Rare",
+            "Legendary": "Legendary"
+        },
+        "Notifications": {
+            "OnlyGM": "Only the GM can generate loot chests.",
+            "ChestsGenerated": "{count} chest(s) generated successfully. Check the chat log for a summary (GM only).",
+            "NoActiveScene": "Chest \"{name}\" created, but no scene is open. Drag it from the Actors sidebar onto the map whenever you like.",
+            "ChestPlaced": "Chest \"{name}\" placed on the current scene."
+        },
+        "Errors": {
+            "GenerateFailed": "Error generating chest: {error}",
+            "PackNotFound": "Compendium pack \"{pack}\" not found. Is the Daggerheart system active?",
+            "TableNotFound": "RollTable \"{name}\" not found in the Daggerheart rolltables compendium.",
+            "InvalidTier": "Invalid tier: {tier}",
+            "DialogFailed": "Could not open the chest generation dialog. See console for details."
+        },
+        "Dialog": {
+            "Title": "Generate Loot Chest — Daggerheart",
+            "GenerateButton": "Generate Chest(s)",
+            "CancelButton": "Cancel",
+            "TierLabel": "Chest Tier",
+            "Tier1": "Tier 1 — Common",
+            "Tier2": "Tier 2 — Uncommon",
+            "Tier3": "Tier 3 — Rare",
+            "Tier4": "Tier 4 — Legendary",
+            "NameLabel": "Chest name",
+            "QuantityLabel": "Number of chests to create",
+            "LootCountLabel": "Items rolled on the \"Loot\" table",
+            "ConsumableCountLabel": "Consumables rolled",
+            "IncludeEquipmentLabel": "Include 1 random weapon/armor of this Tier",
+            "IncludeGoldLabel": "Include gold (based on Tier)",
+            "PlaceOnSceneLabel": "Automatically place at the center of the current scene",
+            "Hint": "Tip: the values above are pre-filled with the suggested defaults for the selected Tier, but you can freely adjust them before generating."
+        },
+        "Summary": {
+            "SpeakerAlias": "Loot Generator",
+            "TierLine": "Tier {tier} — {rarity}",
+            "Items": "Items:",
+            "Consumables": "Consumables:",
+            "Equipment": "Equipment:",
+            "Gold": "Gold:",
+            "GoldChests": "{count} chest(s) of gold",
+            "GoldBags": "{count} bag(s)",
+            "GoldHandfuls": "{count} handful(s)",
+            "GoldCoins": "{count} coin(s)"
+        }
+    }
+}

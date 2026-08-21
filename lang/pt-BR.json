@@ -1,0 +1,58 @@
+{
+    "DHLOOTBOX": {
+        "SheetLabel": "Baú de Loot (Daggerheart)",
+        "FolderName": "Baús de Loot",
+        "MacroName": "🎁 Gerar Baú de Loot",
+        "DefaultChestName": "Baú — Tier {tier} ({rarity})",
+        "DefaultChestHeaderFallback": "Baú de Loot",
+        "Rarity": {
+            "Common": "Comum",
+            "Uncommon": "Incomum",
+            "Rare": "Raro",
+            "Legendary": "Lendário"
+        },
+        "Notifications": {
+            "OnlyGM": "Somente o mestre pode gerar baús de loot.",
+            "ChestsGenerated": "{count} baú(s) gerado(s) com sucesso. Confira o resumo na aba de chat (visível só para o mestre).",
+            "NoActiveScene": "Baú \"{name}\" criado, mas nenhuma cena está aberta. Arraste-o da barra de Atores para o mapa quando quiser.",
+            "ChestPlaced": "Baú \"{name}\" posicionado na cena atual."
+        },
+        "Errors": {
+            "GenerateFailed": "Erro ao gerar baú: {error}",
+            "PackNotFound": "Compêndio \"{pack}\" não encontrado. O sistema Daggerheart está ativo?",
+            "TableNotFound": "RollTable \"{name}\" não encontrada no compêndio de rolltables do Daggerheart.",
+            "InvalidTier": "Tier inválido: {tier}",
+            "DialogFailed": "Não foi possível abrir o diálogo de geração de baú. Veja o console para mais detalhes."
+        },
+        "Dialog": {
+            "Title": "Gerar Baú de Loot — Daggerheart",
+            "GenerateButton": "Gerar Baú(s)",
+            "CancelButton": "Cancelar",
+            "TierLabel": "Tier do baú",
+            "Tier1": "Tier 1 — Comum",
+            "Tier2": "Tier 2 — Incomum",
+            "Tier3": "Tier 3 — Raro",
+            "Tier4": "Tier 4 — Lendário",
+            "NameLabel": "Nome do baú",
+            "QuantityLabel": "Quantidade de baús a criar",
+            "LootCountLabel": "Itens sorteados na tabela \"Loot\"",
+            "ConsumableCountLabel": "Consumíveis sorteados",
+            "IncludeEquipmentLabel": "Incluir 1 arma/armadura aleatória do Tier",
+            "IncludeGoldLabel": "Incluir ouro (conforme o Tier)",
+            "PlaceOnSceneLabel": "Posicionar automaticamente no centro da cena atual",
+            "Hint": "Dica: os valores acima são preenchidos com a sugestão padrão para o Tier escolhido, mas podem ser ajustados livremente antes de gerar."
+        },
+        "Summary": {
+            "SpeakerAlias": "Gerador de Baús",
+            "TierLine": "Tier {tier} — {rarity}",
+            "Items": "Itens:",
+            "Consumables": "Consumíveis:",
+            "Equipment": "Equipamento:",
+            "Gold": "Ouro:",
+            "GoldChests": "{count} baú(s) de ouro",
+            "GoldBags": "{count} saco(s)",
+            "GoldHandfuls": "{count} punhado(s)",
+            "GoldCoins": "{count} moeda(s)"
+        }
+    }
+}

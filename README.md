@@ -1,78 +1,89 @@
-# Baús de Loot — Daggerheart
+# Loot Chests — Daggerheart
 
-Módulo para **Foundry VTT v13** (testado com v13.351) + sistema **Daggerheart v1.9.14**
-que gera baús de loot seguindo as regras oficiais de geração por Tier/raridade
-(https://daggerheart.org/core-mechanics/loot e /consumables), usando os
-compêndios reais do sistema — os itens sorteados **são** os documentos do
-compêndio (armas, armaduras, consumíveis e itens de "Loot"), então já chegam
-prontos e arrastáveis para a ficha do personagem.
+*[Leia em Português](README.pt-BR.md)*
 
-## Como funciona por baixo dos panos
+A **Foundry VTT v13** (tested on v13.351) module for the **Daggerheart v1.9.14**
+system that generates loot chests following the official tier/rarity loot
+generation rules (https://daggerheart.org/core-mechanics/loot and
+/consumables), using the system's real compendiums — the rolled items **are**
+compendium documents (weapons, armor, consumables, and "Loot" items), so they
+arrive ready to drag onto a character sheet.
 
-- Sorteia nas RollTables **"Loot"** e **"Consumables"** que já vêm dentro do
-  compêndio `rolltables` do próprio sistema Daggerheart, usando a fórmula de
-  dados correspondente à raridade do Tier escolhido (Comum `2d12`, Incomum
-  `3d12`, Raro `4d12`, Lendário `5d12` — exatamente como descrito no site).
-- Opcionalmente sorteia 1 arma ou armadura aleatória filtrando pelo campo
-  `system.tier` dos compêndios `weapons`/`armors`.
-- Opcionalmente sorteia ouro (punhados/sacos/baús) usando uma faixa aproximada
-  por Tier, inspirada na tabela de "Custo médio" de equipamento por Tier do
-  guia do mestre.
-- O baú em si é um **Actor do tipo "party"** (o mesmo tipo usado para a ficha
-  de grupo), porque esse tipo já vem, de fábrica, com: campo de ouro, restrição
-  de itens a arma/armadura/consumível/item, e o mais importante — **o sistema
-  já implementa arrastar-e-soltar de itens (e ouro) de um Actor "party" direto
-  para um Actor "character"**, com todo o tratamento de quantidade/empilhamento.
-  O módulo só usa uma ficha simplificada (só Inventário, sem as abas de
-  "Membros do Grupo"/"Descanso" que não fazem sentido para um baú).
-- A permissão padrão do baú é definida como **Dono (Owner)** para todos os
-  jogadores, para que qualquer jogador possa abrir a ficha e puxar itens sem
-  precisar que o mestre configure permissão individualmente.
+## How it works under the hood
 
-## Instalação
+- Rolls on the **"Loot"** and **"Consumables"** RollTables that already ship
+  inside the Daggerheart system's `rolltables` compendium, using the dice
+  formula that matches the rarity of the chosen Tier (Common `2d12`, Uncommon
+  `3d12`, Rare `4d12`, Legendary `5d12` — exactly as described on the site).
+- Optionally rolls 1 random weapon or armor piece, filtered by the
+  `system.tier` field on the `weapons`/`armors` compendiums.
+- Optionally rolls gold (handfuls/bags/chests) using an approximate range per
+  Tier, inspired by the GM guide's "Average Cost" table for equipment by Tier.
+- The chest itself is a **"party"-type Actor** (the same type used for the
+  party sheet), because that type already ships with: a gold field, item
+  restriction to weapon/armor/consumable/loot, and — most importantly — **the
+  system already implements drag-and-drop item (and gold) transfer from a
+  "party" Actor straight to a "character" Actor**, with all quantity/stacking
+  handled automatically. The module only swaps in a simplified sheet (just
+  Inventory, without the "Party Members"/"Rest" tabs that don't apply to a
+  chest).
+- The chest's default permission is set to **Owner** for every player, so any
+  player can open the sheet and take items without the GM having to configure
+  permissions individually.
 
-1. Extraia o arquivo `.zip` deste módulo dentro da pasta
-   `Data/modules/` da sua instalação do Foundry (crie uma pasta chamada
-   `daggerheart-loot-chests` com o conteúdo, se necessário).
-2. Abra seu mundo (que deve estar usando o sistema **Daggerheart**).
-3. Vá em **Configurar Módulos** e ative **"Baús de Loot — Daggerheart"**.
-4. Recarregue o mundo.
+## Installation
 
-## Como usar
+**Option A — via manifest URL (recommended):**
 
-1. Um macro chamado **"🎁 Gerar Baú de Loot"** é criado automaticamente na
-   hotbar do mestre na primeira vez que o mundo carrega com o módulo ativo.
-   Clique nele (ou execute `game.modules.get('daggerheart-loot-chests').api.openChestDialog()`
-   no console/macro).
-2. Escolha o **Tier** do baú (1 a 4). Os campos de quantidade de itens,
-   consumíveis, e as caixas de "incluir equipamento"/"incluir ouro" já vêm
-   preenchidos com uma sugestão padrão para aquele Tier, mas podem ser
-   ajustados livremente antes de confirmar.
-3. Marque **"Posicionar automaticamente no centro da cena atual"** se quiser
-   que o baú já apareça como um token na cena aberta — ou deixe desmarcado e,
-   depois, simplesmente arraste o Actor gerado (ele aparece na aba **Atores**)
-   para o mapa, do jeito tradicional do Foundry.
-4. Um resumo do conteúdo de cada baú é enviado como mensagem de chat
-   sussurrada **apenas para o mestre**, como registro (os jogadores não veem
-   esse spoiler).
-5. Os jogadores abrem a ficha do token do baú (clique duplo) e **arrastam**
-   qualquer item (ou o ouro) direto para a ficha do próprio personagem — a
-   transferência (incluir quantidade, remover do baú, somar na ficha) é feita
-   automaticamente pelo próprio sistema Daggerheart.
+1. In the Foundry Setup screen, go to **Add-on Modules** → **Install Module**.
+2. Paste the manifest URL:
+   `https://github.com/fernandowrpg/dh-lootbox/releases/latest/download/module.json`
+3. Click **Install**.
 
-## Observações e limitações
+**Option B — manual:**
 
-- Como o baú usa o tipo de Actor "party", ele aparecerá na lista de Atores
-  junto com as fichas de personagem — o nome do baú (ex.: "Baú — Tier 2
-  (Incomum)") ajuda a diferenciar.
-- A permissão "Dono" para todos os jogadores significa que qualquer jogador
-  conectado pode mexer no baú (inclusive apagar itens) — é o modelo mais
-  simples para um contêiner comunitário de loot. Se quiser restringir, ajuste
-  a permissão manualmente pela ficha do Actor (ícone de configuração no
-  cabeçalho da janela).
-- As quantidades de ouro por Tier são uma sugestão aproximada (o site não
-  define uma tabela fixa de "ouro por baú"); ajuste os valores na ficha do
-  baú a qualquer momento antes de disponibilizá-lo aos jogadores.
-- Se quiser gerar vários baús de uma vez (por exemplo, para espalhar em
-  diferentes salas de uma masmorra), use o campo "Quantidade de baús a criar"
-  no diálogo.
+1. Download the `dh-lootbox.zip` from the [latest release](https://github.com/fernandowrpg/dh-lootbox/releases/latest)
+   and extract it into your Foundry installation's `Data/modules/` folder, so
+   that `module.json` ends up at `Data/modules/dh-lootbox/module.json`.
+2. Open your world (which must be running the **Daggerheart** system).
+3. Go to **Manage Modules** and enable **"Loot Chests — Daggerheart"**.
+4. Reload the world.
+
+## How to use it
+
+1. A macro named **"🎁 Generate Loot Chest"** (or the Portuguese equivalent,
+   if your Foundry language is set to Português) is automatically added to
+   the GM's hotbar the first time the world loads with the module active.
+   Click it (or run `game.modules.get('dh-lootbox').api.openChestDialog()`
+   from a script macro/console).
+2. Choose the chest's **Tier** (1 to 4). The item/consumable counts and the
+   "include equipment"/"include gold" checkboxes are pre-filled with a
+   sensible default for that Tier, but can be freely adjusted before
+   confirming.
+3. Check **"Automatically place at the center of the current scene"** if you
+   want the chest to immediately show up as a token on the open scene — or
+   leave it unchecked and just drag the generated Actor (it lands in a
+   "Loot Chests" folder in the **Actors** tab) onto the map the normal way.
+4. A summary of each chest's contents is whispered to the **GM only** in
+   chat, as a spoiler-free record.
+5. Players open the chest's token sheet (double-click) and **drag** any item
+   (or the gold) straight onto their own character sheet — the transfer
+   (quantity, removal from the chest, addition to the sheet) is handled
+   automatically by the Daggerheart system itself.
+
+## Notes and limitations
+
+- Since the chest uses the "party" Actor type, it will show up in the Actors
+  list alongside character sheets — the chest's name (e.g. "Chest — Tier 2
+  (Uncommon)") helps tell them apart.
+- "Owner" permission for every player means any connected player can modify
+  the chest (including deleting items) — this is the simplest model for a
+  shared loot container. If you want to restrict it, adjust permissions
+  manually from the Actor sheet (gear icon in the window header).
+- The gold amounts per Tier are an approximate suggestion (the site doesn't
+  define a fixed "gold per chest" table); adjust the values on the chest
+  sheet at any time before handing it to the players.
+- To generate several chests at once (e.g., to scatter across different rooms
+  of a dungeon), use the "Number of chests to create" field in the dialog.
+- The module ships with English and Português (Brasil) translations; it
+  follows whatever language is set in your Foundry client.
