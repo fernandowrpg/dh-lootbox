@@ -1,5 +1,5 @@
 {
-    "id": "daggerheart-loot-chests",
+    "id": "dh-lootbox",
     "title": "Baús de Loot — Daggerheart",
     "description": "Gera baús de loot para o Daggerheart seguindo as regras oficiais de geração por tier/raridade (tabelas de Itens e Consumíveis, equipamentos e ouro), usando os documentos dos compêndios oficiais do sistema. Coloque o baú no mapa e deixe os personagens arrastarem os itens sorteados direto para a ficha.",
     "version": "1.0.0",
@@ -26,7 +26,9 @@
         "styles/chest.css"
     ],
     "authors": [],
-    "url": "",
-    "manifest": "",
-    "download": ""
+    "url": "https://github.com/fernandowrpg/dh-lootbox",
+    "manifest": "https://raw.githubusercontent.com/fernandowrpg/dh-lootbox/main/module.json",
+    "download": "https://github.com/fernandowrpg/dh-lootbox/archive/refs/heads/main.zip",
+    "readme": "https://github.com/fernandowrpg/dh-lootbox/blob/main/README.md",
+    "bugs": "https://github.com/fernandowrpg/dh-lootbox/issues"
 }

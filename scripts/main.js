@@ -15,7 +15,7 @@
  * mecanismo de "abrir o baú e pegar o item".
  */
 
-const MODULE_ID = 'daggerheart-loot-chests';
+const MODULE_ID = 'dh-lootbox';
 const CHEST_ICON = 'systems/daggerheart/assets/icons/documents/items/open-treasure-chest.svg';
 
 /** Configuração padrão sugerida para cada Tier, conforme as tabelas do site. */
@@ -485,7 +485,15 @@ Hooks.once('init', () => {
 Hooks.once('ready', async () => {
     if (game.system.id !== 'daggerheart' || !game.user.isGM) return;
 
-    game.modules.get(MODULE_ID).api = {
+    const moduleData = game.modules.get(MODULE_ID);
+    if (!moduleData) {
+        console.error(
+            `${MODULE_ID} | Não encontrei o módulo em game.modules.get('${MODULE_ID}'). ` +
+                `Verifique se a pasta em Data/modules tem exatamente esse nome e se o campo "id" do module.json é "${MODULE_ID}".`
+        );
+        return;
+    }
+    moduleData.api = {
         openChestDialog,
         generateLootChest,
         placeChestOnCurrentScene,
