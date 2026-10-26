@@ -42,7 +42,8 @@
             "QuantityLabel": "Quantidade de baús a criar",
             "LootCountLabel": "Itens sorteados na tabela \"Loot\"",
             "ConsumableCountLabel": "Consumíveis sorteados",
-            "IncludeEquipmentLabel": "Incluir 1 arma/armadura aleatória do Tier",
+            "WeaponCountLabel": "Armas sorteadas do Tier",
+            "ArmorCountLabel": "Armaduras sorteadas do Tier",
             "IncludeGoldLabel": "Incluir ouro (conforme o Tier)",
             "PlaceOnSceneLabel": "Posicionar automaticamente no centro da cena atual",
             "Hint": "Dica: os valores acima são preenchidos com a sugestão padrão para o Tier escolhido, mas podem ser ajustados livremente antes de gerar."

@@ -15,8 +15,8 @@ arrive ready to drag onto a character sheet.
   inside the Daggerheart system's `rolltables` compendium, using the dice
   formula that matches the rarity of the chosen Tier (Common `2d12`, Uncommon
   `3d12`, Rare `4d12`, Legendary `5d12` — exactly as described on the site).
-- Optionally rolls 1 random weapon or armor piece, filtered by the
-  `system.tier` field on the `weapons`/`armors` compendiums.
+- Rolls a configurable number of weapons and armor pieces (one field each),
+  filtered by the `system.tier` field on the `weapons`/`armors` compendiums.
 - Optionally rolls gold (handfuls/bags/chests) using an approximate range per
   Tier, inspired by the GM guide's "Average Cost" table for equipment by Tier.
 - The chest itself is a **"party"-type Actor** (the same type used for the
@@ -65,8 +65,8 @@ arrive ready to drag onto a character sheet.
      RollTables ship with, and is selected by default.
 
    Both options come straight from the site's rules (for example, Tier 1 /
-   Common explicitly allows `1d12 or 2d12`). The item/consumable counts and
-   the "include equipment"/"include gold" checkboxes are pre-filled with a
+   Common explicitly allows `1d12 or 2d12`). The item/consumable/weapon/armor
+   counts and the "include gold" checkbox are pre-filled with a
    sensible default for the selected Tier, but can be freely adjusted before
    confirming.
 3. Check **"Automatically place at the center of the current scene"** if you

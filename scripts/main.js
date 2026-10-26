@@ -29,7 +29,8 @@ const TIER_DEFAULTS = {
         diceOptions: { uniform: '1d12', bellCurve: '2d12' },
         lootCount: 1,
         consumableCount: 1,
-        defaultIncludeEquipment: false,
+        weaponCount: 0,
+        armorCount: 0,
         goldFormula: { handfuls: '1d4' }
     },
     2: {
@@ -37,7 +38,8 @@ const TIER_DEFAULTS = {
         diceOptions: { uniform: '2d12', bellCurve: '3d12' },
         lootCount: 2,
         consumableCount: 2,
-        defaultIncludeEquipment: true,
+        weaponCount: 1,
+        armorCount: 0,
         goldFormula: { bags: '1', handfuls: '1d4' }
     },
     3: {
@@ -45,7 +47,8 @@ const TIER_DEFAULTS = {
         diceOptions: { uniform: '3d12', bellCurve: '4d12' },
         lootCount: 2,
         consumableCount: 3,
-        defaultIncludeEquipment: true,
+        weaponCount: 1,
+        armorCount: 0,
         goldFormula: { bags: '1d6 + 4' }
     },
     4: {
@@ -53,7 +56,8 @@ const TIER_DEFAULTS = {
         diceOptions: { uniform: '4d12', bellCurve: '5d12' },
         lootCount: 3,
         consumableCount: 3,
-        defaultIncludeEquipment: true,
+        weaponCount: 1,
+        armorCount: 0,
         goldFormula: { chests: '1d2' }
     }
 };
@@ -166,19 +170,22 @@ async function drawFromTable(table, formula, count) {
     return drawn;
 }
 
-/** Rolls a random weapon or armor (50/50), filtered to the chest's Tier. */
-async function drawEquipment(tier) {
-    const packNames = ['daggerheart.weapons', 'daggerheart.armors'];
-    const chosenPackName = packNames[Math.floor(Math.random() * packNames.length)];
-    const pack = game.packs.get(chosenPackName);
-    if (!pack) return null;
+/** Rolls `count` random documents from an equipment pack, filtered to the chest's Tier. */
+async function drawEquipment(packName, tier, count) {
+    const pack = game.packs.get(packName);
+    if (!pack || count <= 0) return [];
 
     const index = await pack.getIndex({ fields: ['system.tier'] });
     const options = index.filter(e => e.system?.tier === tier);
-    if (!options.length) return null;
+    if (!options.length) return [];
 
-    const chosen = options[Math.floor(Math.random() * options.length)];
-    return fromUuid(chosen.uuid);
+    const drawn = [];
+    for (let i = 0; i < count; i++) {
+        const chosen = options[Math.floor(Math.random() * options.length)];
+        const doc = await fromUuid(chosen.uuid);
+        if (doc) drawn.push(doc);
+    }
+    return drawn;
 }
 
 async function getOrCreateChestFolder() {
@@ -200,7 +207,9 @@ async function getOrCreateChestFolder() {
  * @param {string} [opts.name]              Name for the generated Actor
  * @param {number} [opts.lootCount]         How many items to roll on the "Loot" table
  * @param {number} [opts.consumableCount]   How many consumables to roll
- * @param {boolean} [opts.includeEquipment] Rolls 1 weapon/armor of the Tier
+ * @param {number} [opts.weaponCount]       How many weapons of the Tier to roll
+ * @param {number} [opts.armorCount]        How many armor pieces of the Tier to roll
+ * @param {boolean} [opts.includeEquipment] Legacy: rolls 1 weapon or armor (50/50) when no counts are given
  * @param {boolean} [opts.includeGold]      Rolls gold based on the Tier
  * @param {'uniform'|'bellCurve'} [opts.diceMode] Which dice option to use for this Tier's rarity
  * @returns {Promise<Actor>}
@@ -215,7 +224,15 @@ async function generateLootChest(opts) {
 
     const lootCount = Number.isFinite(opts.lootCount) ? opts.lootCount : cfg.lootCount;
     const consumableCount = Number.isFinite(opts.consumableCount) ? opts.consumableCount : cfg.consumableCount;
-    const includeEquipment = opts.includeEquipment ?? cfg.defaultIncludeEquipment;
+    let weaponCount = Number.isFinite(opts.weaponCount) ? opts.weaponCount : null;
+    let armorCount = Number.isFinite(opts.armorCount) ? opts.armorCount : null;
+    if (weaponCount === null && armorCount === null && opts.includeEquipment !== undefined) {
+        const rollWeapon = Math.random() < 0.5;
+        weaponCount = opts.includeEquipment && rollWeapon ? 1 : 0;
+        armorCount = opts.includeEquipment && !rollWeapon ? 1 : 0;
+    }
+    weaponCount ??= cfg.weaponCount;
+    armorCount ??= cfg.armorCount;
     const includeGold = opts.includeGold ?? true;
     const name = opts.name?.trim() || getDefaultChestName(tier);
 
@@ -226,11 +243,10 @@ async function generateLootChest(opts) {
     const consumableDocs =
         consumableCount > 0 ? await drawFromTable(consumablesTable, formula, consumableCount) : [];
 
-    const equipmentDocs = [];
-    if (includeEquipment) {
-        const eq = await drawEquipment(tier);
-        if (eq) equipmentDocs.push(eq);
-    }
+    const equipmentDocs = [
+        ...(await drawEquipment('daggerheart.weapons', tier, weaponCount)),
+        ...(await drawEquipment('daggerheart.armors', tier, armorCount))
+    ];
 
     const allDocs = [...lootDocs, ...consumableDocs, ...equipmentDocs];
     const itemsData = allDocs.map(doc => {
@@ -391,8 +407,13 @@ function buildDialogContent() {
             <label>${L('ConsumableCountLabel')}</label>
             <input type="number" name="consumableCount" min="0" max="10" step="1">
         </div>
-        <div class="form-group form-group-checkbox">
-            <label><input type="checkbox" name="includeEquipment"> ${L('IncludeEquipmentLabel')}</label>
+        <div class="form-group">
+            <label>${L('WeaponCountLabel')}</label>
+            <input type="number" name="weaponCount" min="0" max="10" step="1">
+        </div>
+        <div class="form-group">
+            <label>${L('ArmorCountLabel')}</label>
+            <input type="number" name="armorCount" min="0" max="10" step="1">
         </div>
         <div class="form-group form-group-checkbox">
             <label><input type="checkbox" name="includeGold" checked> ${L('IncludeGoldLabel')}</label>
@@ -415,7 +436,8 @@ function wireDialogDefaults(rootElement) {
     const nameInput = container.querySelector('[name="name"]');
     const lootInput = container.querySelector('[name="lootCount"]');
     const consInput = container.querySelector('[name="consumableCount"]');
-    const equipInput = container.querySelector('[name="includeEquipment"]');
+    const weaponInput = container.querySelector('[name="weaponCount"]');
+    const armorInput = container.querySelector('[name="armorCount"]');
     const formulaPreview = container.querySelector('.dice-formula-preview');
     if (!tierSelect) return;
 
@@ -434,7 +456,8 @@ function wireDialogDefaults(rootElement) {
         if (!cfg) return;
         lootInput.value = cfg.lootCount;
         consInput.value = cfg.consumableCount;
-        equipInput.checked = cfg.defaultIncludeEquipment;
+        weaponInput.value = cfg.weaponCount;
+        armorInput.value = cfg.armorCount;
         if (!nameInput.dataset.userEdited) {
             nameInput.value = getDefaultChestName(tier);
         }
@@ -475,7 +498,8 @@ async function openChestDialog() {
                             quantity: Math.max(1, Number(form.elements.quantity.value) || 1),
                             lootCount: Number(form.elements.lootCount.value) || 0,
                             consumableCount: Number(form.elements.consumableCount.value) || 0,
-                            includeEquipment: form.elements.includeEquipment.checked,
+                            weaponCount: Number(form.elements.weaponCount.value) || 0,
+                            armorCount: Number(form.elements.armorCount.value) || 0,
                             includeGold: form.elements.includeGold.checked,
                             placeOnScene: form.elements.placeOnScene.checked
                         };

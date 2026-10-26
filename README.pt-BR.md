@@ -15,7 +15,8 @@ prontos e arrastáveis para a ficha do personagem.
   compêndio `rolltables` do próprio sistema Daggerheart, usando a fórmula de
   dados correspondente à raridade do Tier escolhido (Comum `2d12`, Incomum
   `3d12`, Raro `4d12`, Lendário `5d12` — exatamente como descrito no site).
-- Opcionalmente sorteia 1 arma ou armadura aleatória filtrando pelo campo
+- Sorteia uma quantidade configurável de armas e de armaduras (um campo para
+  cada), filtrando pelo campo
   `system.tier` dos compêndios `weapons`/`armors`.
 - Opcionalmente sorteia ouro (punhados/sacos/baús) usando uma faixa aproximada
   por Tier, inspirada na tabela de "Custo médio" de equipamento por Tier do
@@ -66,7 +67,7 @@ prontos e arrastáveis para a ficha do personagem.
 
    As duas opções vêm direto das regras do site (por exemplo, o Tier 1/Comum
    permite explicitamente `1d12 ou 2d12`). Os campos de quantidade de itens,
-   consumíveis, e as caixas de "incluir equipamento"/"incluir ouro" já vêm
+   consumíveis, armas e armaduras e a caixa de "incluir ouro" já vêm
    preenchidos com uma sugestão padrão para aquele Tier, mas podem ser
    ajustados livremente antes de confirmar.
 3. Marque **"Posicionar automaticamente no centro da cena atual"** se quiser

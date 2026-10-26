@@ -42,7 +42,8 @@
             "QuantityLabel": "Number of chests to create",
             "LootCountLabel": "Items rolled on the \"Loot\" table",
             "ConsumableCountLabel": "Consumables rolled",
-            "IncludeEquipmentLabel": "Include 1 random weapon/armor of this Tier",
+            "WeaponCountLabel": "Weapons rolled from this Tier",
+            "ArmorCountLabel": "Armor pieces rolled from this Tier",
             "IncludeGoldLabel": "Include gold (based on Tier)",
             "PlaceOnSceneLabel": "Automatically place at the center of the current scene",
             "Hint": "Tip: the values above are pre-filled with the suggested defaults for the selected Tier, but you can freely adjust them before generating."
