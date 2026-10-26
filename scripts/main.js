@@ -434,10 +434,13 @@ function wireDialogDefaults(rootElement) {
     const tierSelect = container.querySelector('[name="tier"]');
     const diceModeSelect = container.querySelector('[name="diceMode"]');
     const nameInput = container.querySelector('[name="name"]');
-    const lootInput = container.querySelector('[name="lootCount"]');
-    const consInput = container.querySelector('[name="consumableCount"]');
-    const weaponInput = container.querySelector('[name="weaponCount"]');
-    const armorInput = container.querySelector('[name="armorCount"]');
+    // Count inputs and the TIER_DEFAULTS key that pre-fills each one.
+    const countInputs = [
+        ['lootCount', 'lootCount'],
+        ['consumableCount', 'consumableCount'],
+        ['weaponCount', 'weaponCount'],
+        ['armorCount', 'armorCount']
+    ].map(([name, cfgKey]) => ({ input: container.querySelector(`[name="${name}"]`), cfgKey }));
     const formulaPreview = container.querySelector('.dice-formula-preview');
     if (!tierSelect) return;
 
@@ -454,10 +457,10 @@ function wireDialogDefaults(rootElement) {
         const tier = Number(tierSelect.value);
         const cfg = TIER_DEFAULTS[tier];
         if (!cfg) return;
-        lootInput.value = cfg.lootCount;
-        consInput.value = cfg.consumableCount;
-        weaponInput.value = cfg.weaponCount;
-        armorInput.value = cfg.armorCount;
+        // Changing the Tier must not wipe counts the GM already typed in.
+        for (const { input, cfgKey } of countInputs) {
+            if (!input.dataset.userEdited) input.value = cfg[cfgKey];
+        }
         if (!nameInput.dataset.userEdited) {
             nameInput.value = getDefaultChestName(tier);
         }
@@ -466,9 +469,11 @@ function wireDialogDefaults(rootElement) {
 
     tierSelect.addEventListener('change', applyDefaults);
     diceModeSelect.addEventListener('change', updateFormulaPreview);
-    nameInput.addEventListener('input', () => {
-        nameInput.dataset.userEdited = 'true';
-    });
+    for (const el of [nameInput, ...countInputs.map(c => c.input)]) {
+        el.addEventListener('input', () => {
+            el.dataset.userEdited = 'true';
+        });
+    }
     applyDefaults();
 }
 
