@@ -49,6 +49,14 @@ arrive ready to drag onto a character sheet.
 3. Go to **Manage Modules** and enable **"Loot Chests — Daggerheart"**.
 4. Reload the world.
 
+## Consumables Shop
+
+The **"🧪 Create Consumables Shop"** macro (or `game.modules.get('dh-lootbox').api.openShopDialog()`)
+lists **every** consumable in the `daggerheart.consumables` compendium. Filter by name,
+check what the merchant sells and how many of each; the module creates an Actor
+(same sheet as the chests) holding that stock, ready for players to drag items onto
+their character sheet.
+
 ## How to use it
 
 1. A macro named **"🎁 Generate Loot Chest"** (or the Portuguese equivalent,

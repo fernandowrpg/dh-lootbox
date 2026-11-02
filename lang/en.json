@@ -59,6 +59,20 @@
             "GoldBags": "{count} bag(s)",
             "GoldHandfuls": "{count} handful(s)",
             "GoldCoins": "{count} coin(s)"
+        },
+        "Shop": {
+            "MacroName": "🧪 Create Consumables Shop",
+            "Title": "Consumables Shop — Daggerheart",
+            "GenerateButton": "Create Shop",
+            "NameLabel": "Shop name",
+            "DefaultName": "Consumables Shop",
+            "HeaderLabel": "Consumables Shop",
+            "FilterPlaceholder": "Filter by name…",
+            "SelectAll": "Check visible",
+            "SelectNone": "Uncheck visible",
+            "Hint": "Check the consumables (from the system compendium) and how many of each. Players drag them from the shop sheet onto their character.",
+            "NothingSelected": "No consumables selected.",
+            "Created": "Shop \"{name}\" created."
         }
     }
 }

@@ -59,6 +59,20 @@
             "GoldBags": "{count} saco(s)",
             "GoldHandfuls": "{count} punhado(s)",
             "GoldCoins": "{count} moeda(s)"
+        },
+        "Shop": {
+            "MacroName": "🧪 Gerar Loja de Consumíveis",
+            "Title": "Loja de Consumíveis — Daggerheart",
+            "GenerateButton": "Criar Loja",
+            "NameLabel": "Nome da loja",
+            "DefaultName": "Loja de Consumíveis",
+            "HeaderLabel": "Loja de Consumíveis",
+            "FilterPlaceholder": "Filtrar por nome…",
+            "SelectAll": "Marcar visíveis",
+            "SelectNone": "Desmarcar visíveis",
+            "Hint": "Marque os consumíveis (do compêndio do sistema) e a quantidade de cada um. Os jogadores arrastam da ficha da loja para o personagem.",
+            "NothingSelected": "Nenhum consumível selecionado.",
+            "Created": "Loja \"{name}\" criada."
         }
     }
 }

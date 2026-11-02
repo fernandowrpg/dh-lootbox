@@ -50,6 +50,14 @@ prontos e arrastáveis para a ficha do personagem.
 3. Vá em **Configurar Módulos** e ative **"Loot Chests — Daggerheart"**.
 4. Recarregue o mundo.
 
+## Loja de Consumíveis
+
+O macro **"🧪 Gerar Loja de Consumíveis"** (ou `game.modules.get('dh-lootbox').api.openShopDialog()`)
+lista **todos** os consumíveis do compêndio `daggerheart.consumables`. Filtre por nome,
+marque os que a lojista vende e a quantidade de cada um; o módulo cria um Actor
+(mesma ficha dos baús) com o estoque, pronto para os jogadores arrastarem os itens
+para a ficha do personagem.
+
 ## Como usar
 
 1. Um macro chamado **"🎁 Gerar Baú de Loot"** (ou o equivalente em inglês, se

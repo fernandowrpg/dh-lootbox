@@ -118,7 +118,9 @@ function registerChestSheet() {
             context = await super._preparePartContext(partId, context, options);
             if (partId === 'header') {
                 const tier = this.document.getFlag(MODULE_ID, 'tier');
-                context.tierLabel = tier
+                context.tierLabel = this.document.getFlag(MODULE_ID, 'isShop')
+                    ? game.i18n.localize('DHLOOTBOX.Shop.HeaderLabel')
+                    : tier
                     ? getDefaultChestName(tier)
                     : game.i18n.localize('DHLOOTBOX.DefaultChestHeaderFallback');
             }
@@ -551,6 +553,206 @@ async function openChestDialog() {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Consumables shop                                                          */
+/* -------------------------------------------------------------------------- */
+
+const CONSUMABLES_PACK = 'daggerheart.consumables';
+
+/** Every consumable in the system compendium, sorted by name. */
+async function getAllConsumables() {
+    const pack = game.packs.get(CONSUMABLES_PACK);
+    if (!pack) throw new Error(game.i18n.format('DHLOOTBOX.Errors.PackNotFound', { pack: CONSUMABLES_PACK }));
+    const index = await pack.getIndex({ fields: ['img'] });
+    return [...index].sort((a, b) => a.name.localeCompare(b.name, game.i18n.lang));
+}
+
+/**
+ * Creates a "shop" Actor (same container sheet as the chests) stocked with the
+ * chosen consumables, so the merchant can hand them out by drag-and-drop.
+ * @param {object} opts
+ * @param {string} [opts.name]                         Name for the generated Actor
+ * @param {{uuid: string, quantity: number}[]} opts.stock  Consumables and how many of each
+ * @returns {Promise<Actor>}
+ */
+async function generateConsumableShop({ name, stock = [] } = {}) {
+    const itemsData = [];
+    for (const { uuid, quantity } of stock) {
+        const qty = Math.max(1, Number(quantity) || 1);
+        const doc = await fromUuid(uuid);
+        if (!doc) continue;
+        const data = doc.toObject();
+        delete data._id;
+        // Stack into one item when the system tracks quantity, otherwise add copies.
+        if (data.system && 'quantity' in data.system) {
+            data.system.quantity = qty;
+            itemsData.push(data);
+        } else {
+            for (let i = 0; i < qty; i++) itemsData.push(foundry.utils.deepClone(data));
+        }
+    }
+
+    const shopName = name?.trim() || game.i18n.localize('DHLOOTBOX.Shop.DefaultName');
+    const folder = await getOrCreateChestFolder();
+    return Actor.create({
+        name: shopName,
+        type: 'party',
+        img: CHEST_ICON,
+        folder: folder?.id,
+        items: itemsData,
+        system: { partyMembers: [] },
+        prototypeToken: {
+            name: shopName,
+            texture: { src: CHEST_ICON },
+            actorLink: true,
+            disposition: CONST.TOKEN_DISPOSITIONS.NEUTRAL,
+            sight: { enabled: false }
+        },
+        ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
+        flags: {
+            core: { sheetClass: `${MODULE_ID}.LootChestSheet` },
+            [MODULE_ID]: { isChest: true, isShop: true }
+        }
+    });
+}
+
+function buildShopDialogContent(consumables) {
+    const L = key => game.i18n.localize(`DHLOOTBOX.Shop.${key}`);
+    const esc = foundry.utils.escapeHTML;
+    const rows = consumables
+        .map(
+            e => `
+            <li class="shop-row" data-name="${esc(e.name.toLowerCase())}">
+                <label>
+                    <input type="checkbox" name="pick" value="${e.uuid}">
+                    <img src="${e.img}" alt="">
+                    <span>${esc(e.name)}</span>
+                </label>
+                <input type="number" name="qty" data-uuid="${e.uuid}" value="1" min="1" max="99" step="1">
+            </li>`
+        )
+        .join('');
+    return `
+    <div class="daggerheart-loot-chest-dialog daggerheart-shop-dialog">
+        <div class="form-group">
+            <label>${L('NameLabel')}</label>
+            <input type="text" name="name" value="${esc(L('DefaultName'))}">
+        </div>
+        <div class="form-group">
+            <input type="search" name="filter" placeholder="${esc(L('FilterPlaceholder'))}">
+            <button type="button" data-shop="all">${L('SelectAll')}</button>
+            <button type="button" data-shop="none">${L('SelectNone')}</button>
+        </div>
+        <ul class="shop-list">${rows}</ul>
+        <div class="form-group form-group-checkbox">
+            <label><input type="checkbox" name="placeOnScene"> ${game.i18n.localize('DHLOOTBOX.Dialog.PlaceOnSceneLabel')}</label>
+        </div>
+        <p class="hint">${L('Hint')}</p>
+    </div>`;
+}
+
+function wireShopDialog(rootElement) {
+    const root = rootElement instanceof HTMLElement ? rootElement : rootElement?.element;
+    const container = root?.querySelector('.daggerheart-shop-dialog');
+    if (!container) return;
+    const rows = [...container.querySelectorAll('.shop-row')];
+    const visible = () => rows.filter(r => !r.hidden);
+
+    container.querySelector('[name="filter"]').addEventListener('input', event => {
+        const term = event.target.value.trim().toLowerCase();
+        for (const row of rows) row.hidden = term && !row.dataset.name.includes(term);
+    });
+    container.querySelector('[data-shop="all"]').addEventListener('click', () => {
+        for (const row of visible()) row.querySelector('[name="pick"]').checked = true;
+    });
+    container.querySelector('[data-shop="none"]').addEventListener('click', () => {
+        for (const row of visible()) row.querySelector('[name="pick"]').checked = false;
+    });
+    // Typing a quantity implies the GM wants that item.
+    for (const row of rows) {
+        row.querySelector('[name="qty"]').addEventListener('input', () => {
+            row.querySelector('[name="pick"]').checked = true;
+        });
+    }
+}
+
+async function openShopDialog() {
+    if (!game.user.isGM) {
+        ui.notifications.warn(game.i18n.localize('DHLOOTBOX.Notifications.OnlyGM'));
+        return;
+    }
+
+    let formResult;
+    try {
+        const consumables = await getAllConsumables();
+        formResult = await foundry.applications.api.DialogV2.wait({
+            window: { title: game.i18n.localize('DHLOOTBOX.Shop.Title'), icon: 'fa-solid fa-flask' },
+            position: { width: 480 },
+            content: buildShopDialogContent(consumables),
+            buttons: [
+                {
+                    action: 'generate',
+                    label: game.i18n.localize('DHLOOTBOX.Shop.GenerateButton'),
+                    icon: 'fa-solid fa-store',
+                    default: true,
+                    callback: (_event, button) => {
+                        const form = button.form;
+                        const stock = [...form.querySelectorAll('[name="pick"]:checked')].map(cb => ({
+                            uuid: cb.value,
+                            quantity: Number(form.querySelector(`[name="qty"][data-uuid="${cb.value}"]`)?.value) || 1
+                        }));
+                        return {
+                            name: form.elements.name.value,
+                            stock,
+                            placeOnScene: form.elements.placeOnScene.checked
+                        };
+                    }
+                },
+                { action: 'cancel', label: game.i18n.localize('DHLOOTBOX.Dialog.CancelButton'), icon: 'fa-solid fa-xmark' }
+            ],
+            rejectClose: false,
+            render: (_event, element) => wireShopDialog(element)
+        });
+    } catch (err) {
+        console.error(`${MODULE_ID} | Error opening shop dialog`, err);
+        ui.notifications.error(game.i18n.localize('DHLOOTBOX.Errors.DialogFailed'));
+        return;
+    }
+
+    if (!formResult) return; // cancelled
+    if (!formResult.stock.length) {
+        ui.notifications.warn(game.i18n.localize('DHLOOTBOX.Shop.NothingSelected'));
+        return;
+    }
+
+    try {
+        const actor = await generateConsumableShop(formResult);
+        if (formResult.placeOnScene) await placeChestOnCurrentScene(actor);
+        ui.notifications.info(game.i18n.format('DHLOOTBOX.Shop.Created', { name: actor.name }));
+        actor.sheet.render(true);
+    } catch (err) {
+        console.error(`${MODULE_ID} | Error generating shop`, err);
+        ui.notifications.error(game.i18n.format('DHLOOTBOX.Errors.GenerateFailed', { error: err.message }));
+    }
+}
+
+/** Creates (once) a script macro and pins it to the first free hotbar slot. */
+async function ensureHotbarMacro(name, img, command) {
+    let macro = game.macros.find(m => m.name === name);
+    if (!macro) {
+        macro = await Macro.create({ name, type: 'script', img, command, scope: 'global' });
+    }
+
+    const hotbar = game.user.hotbar ?? {};
+    if (Object.values(hotbar).includes(macro.id)) return;
+    for (let slot = 1; slot <= 50; slot++) {
+        if (!hotbar[slot]) {
+            await game.user.assignHotbarMacro(macro, slot);
+            break;
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Module registration                                                       */
 /* -------------------------------------------------------------------------- */
 
@@ -575,30 +777,20 @@ Hooks.once('ready', async () => {
         generateLootChest,
         placeChestOnCurrentScene,
         getDiceFormula,
-        TIER_DEFAULTS
+        TIER_DEFAULTS,
+        openShopDialog,
+        generateConsumableShop
     };
 
-    // Create (once) a convenience macro on the GM's hotbar.
-    const macroName = game.i18n.localize('DHLOOTBOX.MacroName');
-    let macro = game.macros.find(m => m.name === macroName);
-    if (!macro) {
-        macro = await Macro.create({
-            name: macroName,
-            type: 'script',
-            img: CHEST_ICON,
-            command: `game.modules.get('${MODULE_ID}').api.openChestDialog();`,
-            scope: 'global'
-        });
-    }
-
-    const hotbar = game.user.hotbar ?? {};
-    const alreadyPinned = Object.values(hotbar).includes(macro.id);
-    if (!alreadyPinned) {
-        for (let slot = 1; slot <= 50; slot++) {
-            if (!hotbar[slot]) {
-                await game.user.assignHotbarMacro(macro, slot);
-                break;
-            }
-        }
-    }
+    // Create (once) convenience macros on the GM's hotbar.
+    await ensureHotbarMacro(
+        game.i18n.localize('DHLOOTBOX.MacroName'),
+        CHEST_ICON,
+        `game.modules.get('${MODULE_ID}').api.openChestDialog();`
+    );
+    await ensureHotbarMacro(
+        game.i18n.localize('DHLOOTBOX.Shop.MacroName'),
+        'icons/consumables/potions/potion-tube-corked-red.webp',
+        `game.modules.get('${MODULE_ID}').api.openShopDialog();`
+    );
 });
