@@ -1,4 +1,11 @@
 <div class="dhl-prices">
+    {{#if isWorld}}
+        <p class="hint">{{localize "DHLOOTBOX.Trade.Prices.DefaultIntro"}}</p>
+    {{else}}
+        {{#if usesDefault}}
+            <p class="hint">{{localize "DHLOOTBOX.Trade.Prices.UsesDefault"}}</p>
+        {{/if}}
+    {{/if}}
     <p class="hint">{{unitHint}}</p>
 
     <label class="dhl-check">
@@ -8,39 +15,31 @@
     <p class="hint">{{localize "DHLOOTBOX.Trade.Prices.PurseHint"}}</p>
 
     <h3>{{localize "DHLOOTBOX.Trade.Prices.Defaults"}}</h3>
+    {{> "modules/dh-lootbox/templates/price-grid.hbs" rows=buyGrid tiers=tiers step=step}}
+
+    <h3>{{localize "DHLOOTBOX.Trade.Prices.SellDefaults"}}</h3>
+    {{> "modules/dh-lootbox/templates/price-grid.hbs" rows=sellGrid tiers=tiers step=step}}
     <p class="hint">{{localize "DHLOOTBOX.Trade.Prices.DefaultsHint"}}</p>
-    <table class="dhl-defaults">
-        <thead>
-            <tr>
-                <th></th>
-                {{#each tiers}}<th scope="col">{{this}}</th>{{/each}}
-            </tr>
-        </thead>
-        <tbody>
-            {{#each categories}}
-                <tr>
-                    <th scope="row">{{label}}</th>
-                    {{#each cells}}
-                        <td>
-                            <input type="number" min="0" step="{{../../step}}" value="{{value}}"
-                                data-default-type="{{../type}}" data-tier-index="{{index}}" aria-label="{{aria}}">
-                        </td>
-                    {{/each}}
-                </tr>
-            {{/each}}
-        </tbody>
-    </table>
 
     <h3>{{localize "DHLOOTBOX.Trade.Prices.Overrides"}}</h3>
     <p class="hint">{{localize "DHLOOTBOX.Trade.Prices.OverridesHint"}}</p>
     <ol class="dhl-overrides">
+        {{#if overrides.length}}
+            <li class="dhl-trade-line dhl-overrides-head" aria-hidden="true">
+                <span class="dhl-name"></span>
+                <span class="dhl-col">{{localize "DHLOOTBOX.Trade.Prices.PaysColumn"}}</span>
+                <span class="dhl-col">{{localize "DHLOOTBOX.Trade.Prices.ChargesColumn"}}</span>
+                <span class="dhl-icon"></span>
+            </li>
+        {{/if}}
         {{#each overrides}}
             <li class="dhl-trade-line">
                 <img src="{{img}}" alt="">
                 <span class="dhl-name">{{name}}</span>
-                <input type="number" min="0" step="{{../step}}" value="{{value}}" data-override-index="{{index}}"
-                    aria-label="{{name}}">
-                <span class="dhl-price">{{label}}</span>
+                <input type="number" min="0" step="{{../step}}" value="{{price}}" placeholder="{{pricePlaceholder}}"
+                    data-override-index="{{index}}" data-field="price" aria-label="{{payLabel}}">
+                <input type="number" min="0" step="{{../step}}" value="{{sellPrice}}" placeholder="{{sellPlaceholder}}"
+                    data-override-index="{{index}}" data-field="sellPrice" aria-label="{{chargeLabel}}">
                 <button type="button" class="dhl-icon" data-action="removeOverride" data-index="{{index}}"
                     data-tooltip="DHLOOTBOX.Trade.Prices.Remove" aria-label="{{localize "DHLOOTBOX.Trade.Prices.Remove"}}">
                     <i class="fa-solid fa-xmark" aria-hidden="true"></i>
@@ -52,9 +51,19 @@
     </ol>
 
     <div class="dhl-buttons">
-        <button type="button" data-action="fillFromStock">
-            <i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i> {{localize "DHLOOTBOX.Trade.Prices.FillFromStock"}}
-        </button>
+        {{#unless isWorld}}
+            <button type="button" data-action="editDefault">
+                <i class="fa-solid fa-globe" aria-hidden="true"></i> {{localize "DHLOOTBOX.Trade.Prices.EditDefault"}}
+            </button>
+            {{#if hasOwn}}
+                <button type="button" data-action="useDefault">
+                    <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> {{localize "DHLOOTBOX.Trade.Prices.UseDefault"}}
+                </button>
+            {{/if}}
+            <button type="button" data-action="fillFromStock">
+                <i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i> {{localize "DHLOOTBOX.Trade.Prices.FillFromStock"}}
+            </button>
+        {{/unless}}
         <button type="submit" class="dhl-primary">
             <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> {{localize "DHLOOTBOX.Trade.Prices.Save"}}
         </button>

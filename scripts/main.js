@@ -15,7 +15,15 @@
  * the item" mechanism.
  */
 
-import { PriceTable, TradeCounter, isMerchant, registerTrade, setMerchant, tradeApi } from './trade.js';
+import {
+    PriceTable,
+    TradeCounter,
+    isMerchant,
+    merchantCreateData,
+    registerTrade,
+    setMerchant,
+    tradeApi
+} from './trade.js';
 
 const MODULE_ID = 'dh-lootbox';
 const CHEST_ICON = 'systems/daggerheart/assets/icons/documents/items/open-treasure-chest.svg';
@@ -160,7 +168,7 @@ function registerChestSheet() {
             return super._onDragStart(event);
         }
 
-        /* Items a player drops on a merchant go to the trade counter instead of being given away. */
+        /* Items a player drops on a merchant go up for sale on the trade counter instead of being given away. */
         async _onDrop(event) {
             if (!isMerchant(this.document) || game.user.isGM) return super._onDrop(event);
             event.preventDefault();
@@ -249,6 +257,13 @@ async function drawEquipment(packName, tier, count) {
     return drawn;
 }
 
+/** Ownership and flags for a new chest, turned into a merchant when `forSale` is set. */
+function chestAccess(flags, forSale) {
+    if (!forSale) return { ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER }, flags };
+    const merchant = merchantCreateData();
+    return { ownership: merchant.ownership, flags: { ...flags, ...merchant.flags } };
+}
+
 async function getOrCreateChestFolder() {
     const folderName = game.i18n.localize('DHLOOTBOX.FolderName');
     let folder = game.folders.find(f => f.name === folderName && f.type === 'Actor');
@@ -273,6 +288,7 @@ async function getOrCreateChestFolder() {
  * @param {boolean} [opts.includeEquipment] Legacy: rolls 1 weapon or armor (50/50) when no counts are given
  * @param {boolean} [opts.includeGold]      Rolls gold based on the Tier
  * @param {'uniform'|'bellCurve'} [opts.diceMode] Which dice option to use for this Tier's rarity
+ * @param {boolean} [opts.forSale]          Creates the chest as a merchant who sells its contents
  * @returns {Promise<Actor>}
  */
 async function generateLootChest(opts) {
@@ -323,6 +339,7 @@ async function generateLootChest(opts) {
         }
     }
 
+    const access = chestAccess({ isChest: true, tier }, opts.forSale);
     const folder = await getOrCreateChestFolder();
 
     const actor = await Actor.create({
@@ -339,11 +356,8 @@ async function generateLootChest(opts) {
             disposition: CONST.TOKEN_DISPOSITIONS.NEUTRAL,
             sight: { enabled: false }
         },
-        ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
-        flags: {
-            core: { sheetClass: `${MODULE_ID}.LootChestSheet` },
-            [MODULE_ID]: { isChest: true, tier }
-        }
+        ownership: access.ownership,
+        flags: { core: { sheetClass: `${MODULE_ID}.LootChestSheet` }, [MODULE_ID]: access.flags }
     });
 
     await whisperChestSummaryToGM(actor, {
@@ -482,6 +496,9 @@ function buildDialogContent() {
         <div class="form-group form-group-checkbox">
             <label><input type="checkbox" name="placeOnScene"> ${L('PlaceOnSceneLabel')}</label>
         </div>
+        <div class="form-group form-group-checkbox">
+            <label><input type="checkbox" name="forSale"> ${L('ForSaleLabel')}</label>
+        </div>
         <p class="hint">${L('Hint')}</p>
     </div>`;
 }
@@ -567,7 +584,8 @@ async function openChestDialog() {
                             weaponCount: Number(form.elements.weaponCount.value) || 0,
                             armorCount: Number(form.elements.armorCount.value) || 0,
                             includeGold: form.elements.includeGold.checked,
-                            placeOnScene: form.elements.placeOnScene.checked
+                            placeOnScene: form.elements.placeOnScene.checked,
+                            forSale: form.elements.forSale.checked
                         };
                     }
                 },
@@ -633,7 +651,7 @@ async function getAllConsumables() {
  * @param {{uuid: string, quantity: number}[]} opts.stock  Consumables and how many of each
  * @returns {Promise<Actor>}
  */
-async function generateConsumableShop({ name, stock = [] } = {}) {
+async function generateConsumableShop({ name, stock = [], forSale = false } = {}) {
     const itemsData = [];
     for (const { uuid, quantity } of stock) {
         const qty = Math.max(1, Number(quantity) || 1);
@@ -651,6 +669,7 @@ async function generateConsumableShop({ name, stock = [] } = {}) {
     }
 
     const shopName = name?.trim() || game.i18n.localize('DHLOOTBOX.Shop.DefaultName');
+    const access = chestAccess({ isChest: true, isShop: true }, forSale);
     const folder = await getOrCreateChestFolder();
     return Actor.create({
         name: shopName,
@@ -666,11 +685,8 @@ async function generateConsumableShop({ name, stock = [] } = {}) {
             disposition: CONST.TOKEN_DISPOSITIONS.NEUTRAL,
             sight: { enabled: false }
         },
-        ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
-        flags: {
-            core: { sheetClass: `${MODULE_ID}.LootChestSheet` },
-            [MODULE_ID]: { isChest: true, isShop: true }
-        }
+        ownership: access.ownership,
+        flags: { core: { sheetClass: `${MODULE_ID}.LootChestSheet` }, [MODULE_ID]: access.flags }
     });
 }
 
@@ -704,6 +720,9 @@ function buildShopDialogContent(consumables) {
         <ul class="shop-list">${rows}</ul>
         <div class="form-group form-group-checkbox">
             <label><input type="checkbox" name="placeOnScene"> ${game.i18n.localize('DHLOOTBOX.Dialog.PlaceOnSceneLabel')}</label>
+        </div>
+        <div class="form-group form-group-checkbox">
+            <label><input type="checkbox" name="forSale"> ${game.i18n.localize('DHLOOTBOX.Dialog.ForSaleLabel')}</label>
         </div>
         <p class="hint">${L('Hint')}</p>
     </div>`;
@@ -762,7 +781,8 @@ async function openShopDialog() {
                         return {
                             name: form.elements.name.value,
                             stock,
-                            placeOnScene: form.elements.placeOnScene.checked
+                            placeOnScene: form.elements.placeOnScene.checked,
+                            forSale: form.elements.forSale.checked
                         };
                     }
                 },

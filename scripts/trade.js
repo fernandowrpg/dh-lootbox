@@ -1,17 +1,20 @@
 /**
  * Loot Chests — Daggerheart: merchant trade
  * ---------------------------------------------------------------------------
- * Turns a chest Actor into a merchant that buys items from the players.
+ * Turns any chest Actor (a loot chest, a consumables shop…) into a merchant who
+ * buys items from the players and sells them her own stock.
  *
- * - The GM marks a chest as a merchant and sets what she pays per item (a
- *   default per item type and Tier, plus per-item prices).
- * - A player drags items from their own sheet onto the merchant (or onto the
- *   trade counter window). The items stay on the sheet while the offer is
- *   being put together.
+ * - The GM marks a chest as a merchant ("for sale") and sets her prices: what
+ *   she pays and what she charges, as a default per item type and Tier plus
+ *   per-item prices. A chest without its own price list uses the world's
+ *   default list, so freshly generated chests are ready to trade.
+ * - On the trade counter a player drags items from their own sheet to sell and
+ *   picks items from her stock to buy. Nothing moves while the deal is being
+ *   put together.
  * - On confirmation the request goes to the active GM through a Foundry query
- *   (CONFIG.queries / User#query, v13+). The GM client checks everything again
- *   and moves the items to the merchant and the gold to the player in one go,
- *   because the player has no permission to change the merchant Actor.
+ *   (CONFIG.queries / User#query, v13+), because the player has no permission
+ *   on the merchant Actor. The GM client checks everything again and moves the
+ *   items both ways and only the difference in gold.
  *
  * Money is handled in "coins" internally: 1 handful = 10 coins, 1 bag = 10
  * handfuls, 1 chest = 10 bags (the Daggerheart conversion, with the optional
@@ -19,8 +22,9 @@
  */
 
 export const MODULE_ID = 'dh-lootbox';
-const QUERY_NAME = `${MODULE_ID}.sell`;
+const QUERY_NAME = `${MODULE_ID}.trade`;
 const CONFIG_FLAG = 'merchant';
+const DEFAULT_PRICES_SETTING = 'defaultPrices';
 
 const SELLABLE_TYPES = ['weapon', 'armor', 'consumable', 'loot'];
 const STACKABLE_TYPES = ['consumable', 'loot'];
@@ -97,6 +101,34 @@ export function formatMoney(base) {
     return parts.length ? parts.join(', ') : L('NoMoney');
 }
 
+/** Update data adding `base` coins to `gold`, in the enabled denominations. */
+function addGold(gold, base) {
+    return Object.fromEntries(
+        Object.entries(splitBase(base)).map(([key, count]) => [`system.gold.${key}`, (Number(gold?.[key]) || 0) + count])
+    );
+}
+
+/** Update data taking `cost` coins from `gold`: spends the smallest coins first and only
+ *  breaks a larger one (giving change) when it has to. Null when the purse is too short. */
+function payGold(gold, cost) {
+    if (goldToBase(gold) < cost) return null;
+    const purse = Object.fromEntries(DENOMINATIONS.map(([key]) => [key, Math.max(0, Number(gold?.[key]) || 0)]));
+    const ascending = [...DENOMINATIONS].reverse();
+    let due = cost;
+    for (const [key, rate] of ascending) {
+        const used = Math.min(purse[key], Math.floor(due / rate));
+        purse[key] -= used;
+        due -= used * rate;
+    }
+    if (due > 0) {
+        // Every denomination left is now worth more than what is still due: break the smallest one.
+        const [key, rate] = ascending.find(([k, r]) => purse[k] > 0 && r > due);
+        purse[key] -= 1;
+        for (const [changeKey, count] of Object.entries(splitBase(rate - due))) purse[changeKey] += count;
+    }
+    return Object.fromEntries(DENOMINATIONS.map(([key]) => [`system.gold.${key}`, purse[key]]));
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Merchant configuration                                                    */
 /* -------------------------------------------------------------------------- */
@@ -105,25 +137,71 @@ export function isMerchant(actor) {
     return !!actor?.getFlag?.(MODULE_ID, 'isMerchant');
 }
 
-function emptyDefaults() {
+/** Whether the chest has a price list of its own (otherwise it uses the world's default). */
+export function hasOwnPrices(actor) {
+    return actor?.getFlag?.(MODULE_ID, CONFIG_FLAG) !== undefined;
+}
+
+function emptyGrid() {
     return Object.fromEntries(SELLABLE_TYPES.map(type => [type, [0, 0, 0, 0]]));
 }
 
-/** Prices are stored in coins. `overrides` match an item by compendium source or by name. */
-export function getMerchantConfig(actor) {
-    const raw = actor?.getFlag?.(MODULE_ID, CONFIG_FLAG) ?? {};
-    const defaults = emptyDefaults();
+function readGrid(source) {
+    const grid = emptyGrid();
     for (const type of SELLABLE_TYPES) {
-        for (let i = 0; i < 4; i++) defaults[type][i] = Math.max(0, Number(raw.defaults?.[type]?.[i]) || 0);
+        for (let i = 0; i < 4; i++) grid[type][i] = Math.max(0, Number(source?.[type]?.[i]) || 0);
     }
+    return grid;
+}
+
+const nullablePrice = value =>
+    value === null || value === undefined || value === '' ? null : Math.max(0, Number(value) || 0);
+
+/** Normalizes a stored price list. Prices are in coins; `null` per-item prices fall back to the default. */
+function normalizeConfig(raw = {}) {
     const overrides = (Array.isArray(raw.overrides) ? raw.overrides : Object.values(raw.overrides ?? {}))
         .filter(o => o?.name)
-        .map(o => ({ key: o.key ?? null, name: o.name, img: o.img ?? '', price: Math.max(0, Number(o.price) || 0) }));
-    return { unlimitedPurse: !!raw.unlimitedPurse, defaults, overrides };
+        .map(o => ({
+            key: o.key ?? null,
+            name: o.name,
+            img: o.img ?? '',
+            type: o.type ?? null,
+            tier: Number(o.tier) || null,
+            price: nullablePrice(o.price),
+            sellPrice: nullablePrice(o.sellPrice)
+        }));
+    return {
+        unlimitedPurse: !!raw.unlimitedPurse,
+        defaults: readGrid(raw.defaults),
+        sellDefaults: readGrid(raw.sellDefaults),
+        overrides
+    };
+}
+
+function worldDefaultPrices() {
+    try {
+        return game.settings.get(MODULE_ID, DEFAULT_PRICES_SETTING) ?? {};
+    } catch {
+        return {};
+    }
+}
+
+/** The merchant's price list: her own, or the world's default when she has none. */
+export function getMerchantConfig(actor) {
+    const own = actor?.getFlag?.(MODULE_ID, CONFIG_FLAG);
+    return normalizeConfig(own ?? worldDefaultPrices());
+}
+
+/** Flags/ownership that turn a new chest into a merchant (used when generating chests). */
+export function merchantCreateData() {
+    return {
+        ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER },
+        flags: { isMerchant: true, ownershipBeforeMerchant: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER }
+    };
 }
 
 /** Turns a chest into a merchant (or back). Players get Observer access to a merchant:
- *  they can see the stock and drop items to sell, but not take or change anything. */
+ *  they can see the stock and trade at the counter, but not take or change anything. */
 export async function setMerchant(actor, enabled) {
     if (!game.user.isGM) return;
     const OBSERVER = CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER;
@@ -164,10 +242,17 @@ function itemQuantity(item) {
     return typeof quantity === 'number' ? quantity : 1;
 }
 
-/** Why an item can't be sold, or null. */
+/** Why a player's item can't be sold, or null. */
 function sellProblem(item) {
     if (!SELLABLE_TYPES.includes(item?.type)) return 'NotSellable';
     if (item.system?.equipped) return 'Equipped';
+    if (itemQuantity(item) < 1) return 'NoneLeft';
+    return null;
+}
+
+/** Why an item of the merchant's stock can't be bought, or null. */
+function stockProblem(item) {
+    if (!SELLABLE_TYPES.includes(item?.type)) return 'NotSellable';
     if (itemQuantity(item) < 1) return 'NoneLeft';
     return null;
 }
@@ -218,178 +303,235 @@ function findOverride(config, item) {
     );
 }
 
-/** What the merchant pays for one unit of `item`, in coins (0 = she doesn't buy it). */
-export async function unitPrice(merchant, item, config = getMerchantConfig(merchant)) {
+/** Price of one unit, in coins. `side` is "offer" (what she pays a player) or "ask"
+ *  (what she charges a player). 0 means she doesn't trade that item that way. */
+async function priceFor(item, side, config) {
     if (!SELLABLE_TYPES.includes(item?.type)) return 0;
+    const field = side === 'ask' ? 'sellPrice' : 'price';
     const override = findOverride(config, item);
-    if (override) return roundToUnit(override.price);
+    if (override && override[field] !== null) return roundToUnit(override[field]);
     const rarity = await loadRarityIndex();
-    return roundToUnit(config.defaults[item.type][itemTier(item, rarity) - 1]);
+    const grid = side === 'ask' ? config.sellDefaults : config.defaults;
+    return roundToUnit(grid[item.type][itemTier(item, rarity) - 1]);
+}
+
+/** What the merchant pays for one unit of a player's item, in coins (0 = she doesn't buy it). */
+export function unitPrice(merchant, item, config = getMerchantConfig(merchant)) {
+    return priceFor(item, 'offer', config);
+}
+
+/** What the merchant charges for one unit of her stock, in coins (0 = not for sale). */
+export function askPrice(merchant, item, config = getMerchantConfig(merchant)) {
+    return priceFor(item, 'ask', config);
 }
 
 /* -------------------------------------------------------------------------- */
-/*  The sale, run on the GM's client                                          */
+/*  The trade, run on the GM's client                                         */
 /* -------------------------------------------------------------------------- */
 
 const fail = (reason, extra = {}) => ({ ok: false, reason, ...extra });
 
-/** One sale at a time, so two players can't both spend the same purse. */
-let saleQueue = Promise.resolve();
+/** One trade at a time, so two players can't both spend the same purse or stock. */
+let tradeQueue = Promise.resolve();
 function enqueue(task) {
-    const run = saleQueue.then(task, task);
-    saleQueue = run.catch(() => {});
+    const run = tradeQueue.then(task, task);
+    tradeQueue = run.catch(() => {});
     return run;
 }
 
-async function handleSellQuery(data) {
+async function handleTradeQuery(data) {
     if (!game.user.isGM) return fail('NotGM');
-    return enqueue(() => executeSale(data));
+    return enqueue(() => executeTrade(data));
 }
 
-async function executeSale({ userId, merchantUuid, sellerUuid, lines } = {}) {
-    const user = game.users.get(userId);
-    const merchant = merchantUuid ? await fromUuid(merchantUuid) : null;
-    const seller = sellerUuid ? await fromUuid(sellerUuid) : null;
-    if (!user || !merchant || !seller || merchant.uuid === seller.uuid) return fail('Missing');
-    if (!isMerchant(merchant)) return fail('NotMerchant');
-    if (!seller.testUserPermission(user, 'OWNER')) return fail('NotOwner');
-
-    const config = getMerchantConfig(merchant);
+/** Sums the requested quantity per item id. */
+function wantedQuantities(lines) {
     const wanted = new Map();
     for (const line of Array.isArray(lines) ? lines : []) {
         const quantity = Math.max(1, Math.floor(Number(line?.quantity) || 1));
         if (line?.itemId) wanted.set(line.itemId, (wanted.get(line.itemId) ?? 0) + quantity);
     }
+    return wanted;
+}
 
-    const sold = [];
+/** Item changes for one actor, applied in one go once the whole trade is checked. */
+function newPlan(actor) {
+    return { actor, deltas: new Map(), creates: [], pending: new Map() };
+}
+
+function planGive(plan, item, quantity) {
+    plan.deltas.set(item.id, (plan.deltas.get(item.id) ?? 0) - quantity);
+}
+
+/** Adds `quantity` of `item` to the plan's actor, stacking consumables/loot with what it has. */
+function planReceive(plan, item, quantity) {
+    const data = item.toObject();
+    delete data._id;
+    if (data.system && 'equipped' in data.system) data.system.equipped = false;
+    const stackable = STACKABLE_TYPES.includes(item.type) && typeof item.system?.quantity === 'number';
+    if (!stackable) {
+        for (let i = 0; i < quantity; i++) {
+            const copy = foundry.utils.deepClone(data);
+            if (copy.system && 'quantity' in copy.system) copy.system.quantity = 1;
+            plan.creates.push(copy);
+        }
+        return;
+    }
+    const key = `${item.type}|${normalName(item.name)}`;
+    const existing = plan.actor.items.find(i => i.type === item.type && normalName(i.name) === normalName(item.name));
+    if (existing) {
+        plan.deltas.set(existing.id, (plan.deltas.get(existing.id) ?? 0) + quantity);
+    } else if (plan.pending.has(key)) {
+        plan.pending.get(key).system.quantity += quantity;
+    } else {
+        data.system.quantity = quantity;
+        plan.pending.set(key, data);
+        plan.creates.push(data);
+    }
+}
+
+async function applyPlan(plan) {
+    const updates = [];
+    const deletes = [];
+    for (const [id, delta] of plan.deltas) {
+        const item = plan.actor.items.get(id);
+        if (!item || !delta) continue;
+        const final = itemQuantity(item) + delta;
+        if (final <= 0) deletes.push(id);
+        else updates.push({ _id: id, 'system.quantity': final });
+    }
+    if (plan.creates.length) await plan.actor.createEmbeddedDocuments('Item', plan.creates);
+    if (updates.length) await plan.actor.updateEmbeddedDocuments('Item', updates);
+    if (deletes.length) await plan.actor.deleteEmbeddedDocuments('Item', deletes);
+}
+
+async function executeTrade({ userId, merchantUuid, customerUuid, sell, buy } = {}) {
+    const user = game.users.get(userId);
+    const merchant = merchantUuid ? await fromUuid(merchantUuid) : null;
+    const customer = customerUuid ? await fromUuid(customerUuid) : null;
+    if (!user || !merchant || !customer || merchant.uuid === customer.uuid) return fail('Missing');
+    if (!isMerchant(merchant)) return fail('NotMerchant');
+    if (!customer.testUserPermission(user, 'OWNER')) return fail('NotOwner');
+
+    const config = getMerchantConfig(merchant);
     const refused = [];
-    for (const [itemId, requested] of wanted) {
-        const item = seller.items.get(itemId);
+
+    // What the player sells to her.
+    const sold = [];
+    for (const [itemId, requested] of wantedQuantities(sell)) {
+        const item = customer.items.get(itemId);
         if (!item) continue;
         const unit = sellProblem(item) ? 0 : await unitPrice(merchant, item, config);
         if (unit <= 0) {
             refused.push(item.name);
             continue;
         }
-        const available = itemQuantity(item);
-        const quantity = Math.min(available, requested);
-        sold.push({ item, quantity, available, unit, subtotal: unit * quantity });
+        const quantity = Math.min(itemQuantity(item), requested);
+        sold.push({ item, quantity, subtotal: unit * quantity });
     }
-    if (!sold.length) return fail('NothingToSell', { refused });
 
-    const total = sold.reduce((sum, line) => sum + line.subtotal, 0);
-    const purse = goldToBase(merchant.system?.gold);
-    if (!config.unlimitedPurse && purse < total) return fail('MerchantBroke', { total });
-
-    // Items for the merchant: stack consumables/loot with what she already has.
-    const toCreate = [];
-    const pending = new Map();
-    const merchantUpdates = new Map();
-    for (const line of sold) {
-        const data = line.item.toObject();
-        delete data._id;
-        if (data.system && 'equipped' in data.system) data.system.equipped = false;
-        const stackable = STACKABLE_TYPES.includes(line.item.type) && typeof line.item.system?.quantity === 'number';
-        if (stackable) {
-            const key = `${line.item.type}|${normalName(line.item.name)}`;
-            const existing = merchant.items.find(
-                i => i.type === line.item.type && normalName(i.name) === normalName(line.item.name)
-            );
-            if (existing) {
-                const current = merchantUpdates.get(existing.id) ?? itemQuantity(existing);
-                merchantUpdates.set(existing.id, current + line.quantity);
-            } else if (pending.has(key)) {
-                pending.get(key).system.quantity += line.quantity;
-            } else {
-                data.system.quantity = line.quantity;
-                pending.set(key, data);
-                toCreate.push(data);
-            }
-        } else {
-            for (let i = 0; i < line.quantity; i++) {
-                const copy = foundry.utils.deepClone(data);
-                if (copy.system && 'quantity' in copy.system) copy.system.quantity = 1;
-                toCreate.push(copy);
-            }
+    // What the player buys from her stock.
+    const bought = [];
+    for (const [itemId, requested] of wantedQuantities(buy)) {
+        const item = merchant.items.get(itemId);
+        if (!item) continue;
+        const unit = stockProblem(item) ? 0 : await askPrice(merchant, item, config);
+        if (unit <= 0) {
+            refused.push(item.name);
+            continue;
         }
+        const quantity = Math.min(itemQuantity(item), requested);
+        bought.push({ item, quantity, subtotal: unit * quantity });
+    }
+    if (!sold.length && !bought.length) return fail('NothingToTrade', { refused });
+
+    const paid = sold.reduce((sum, line) => sum + line.subtotal, 0);
+    const charged = bought.reduce((sum, line) => sum + line.subtotal, 0);
+    const net = paid - charged; // > 0: she pays the player; < 0: the player pays her
+
+    let customerGold = {};
+    let merchantGold = {};
+    if (net > 0) {
+        customerGold = addGold(customer.system?.gold, net);
+        if (!config.unlimitedPurse) {
+            merchantGold = payGold(merchant.system?.gold, net);
+            if (!merchantGold) return fail('MerchantBroke', { total: net });
+        }
+    } else if (net < 0) {
+        customerGold = payGold(customer.system?.gold, -net);
+        if (!customerGold) return fail('CustomerBroke', { total: -net, name: customer.name });
+        if (!config.unlimitedPurse) merchantGold = addGold(merchant.system?.gold, -net);
     }
 
-    // Items leaving the seller.
-    const toDelete = sold.filter(l => l.quantity >= l.available).map(l => l.item.id);
-    const sellerUpdates = sold
-        .filter(l => l.quantity < l.available)
-        .map(l => ({ _id: l.item.id, 'system.quantity': l.available - l.quantity }));
-
-    // Gold: the payout is added to the seller in the enabled denominations.
-    const payout = splitBase(total);
-    const sellerGold = Object.fromEntries(
-        Object.entries(payout).map(([key, count]) => [
-            `system.gold.${key}`,
-            (Number(seller.system?.gold?.[key]) || 0) + count
-        ])
-    );
+    const merchantPlan = newPlan(merchant);
+    const customerPlan = newPlan(customer);
+    for (const line of sold) {
+        planGive(customerPlan, line.item, line.quantity);
+        planReceive(merchantPlan, line.item, line.quantity);
+    }
+    for (const line of bought) {
+        planGive(merchantPlan, line.item, line.quantity);
+        planReceive(customerPlan, line.item, line.quantity);
+    }
 
     try {
-        if (toCreate.length) await merchant.createEmbeddedDocuments('Item', toCreate);
-        if (merchantUpdates.size) {
-            await merchant.updateEmbeddedDocuments(
-                'Item',
-                [...merchantUpdates].map(([_id, quantity]) => ({ _id, 'system.quantity': quantity }))
-            );
-        }
-        if (sellerUpdates.length) await seller.updateEmbeddedDocuments('Item', sellerUpdates);
-        if (toDelete.length) await seller.deleteEmbeddedDocuments('Item', toDelete);
-        await seller.update(sellerGold);
-        if (!config.unlimitedPurse) {
-            const remaining = splitBase(purse - total);
-            await merchant.update(
-                Object.fromEntries(DENOMINATIONS.map(([key]) => [`system.gold.${key}`, remaining[key] ?? 0]))
-            );
-        }
+        await applyPlan(merchantPlan);
+        await applyPlan(customerPlan);
+        if (Object.keys(customerGold).length) await customer.update(customerGold);
+        if (Object.keys(merchantGold).length) await merchant.update(merchantGold);
     } catch (err) {
-        console.error(`${MODULE_ID} | Sale failed`, err);
+        console.error(`${MODULE_ID} | Trade failed`, err);
         return fail('Failed', { error: err.message });
     }
 
-    await postSaleMessage({ user, merchant, seller, sold, refused, total });
+    await postTradeMessage({ user, merchant, customer, sold, bought, refused, net });
     return {
         ok: true,
-        total,
+        net,
+        paid,
+        charged,
         sold: sold.map(l => ({ name: l.item.name, quantity: l.quantity })),
+        bought: bought.map(l => ({ name: l.item.name, quantity: l.quantity })),
         refused
     };
 }
 
-async function postSaleMessage({ user, merchant, seller, sold, refused, total }) {
+async function postTradeMessage({ user, merchant, customer, sold, bought, refused, net }) {
     const esc = foundry.utils.escapeHTML;
-    const rows = sold
-        .map(l => `<li>${F('Chat.Line', { quantity: l.quantity, name: esc(l.item.name), subtotal: formatMoney(l.subtotal) })}</li>`)
-        .join('');
-    const refusedLine = refused.length
-        ? `<p class="hint">${F('Chat.Refused', { names: refused.map(esc).join(', ') })}</p>`
-        : '';
+    const list = lines =>
+        lines
+            .map(l => `<li>${F('Chat.Line', { quantity: l.quantity, name: esc(l.item.name), subtotal: formatMoney(l.subtotal) })}</li>`)
+            .join('');
+    const names = { merchant: esc(merchant.name), customer: esc(customer.name) };
+    const balance =
+        net > 0
+            ? F('Chat.ToCustomer', { ...names, total: formatMoney(net) })
+            : net < 0
+            ? F('Chat.ToMerchant', { ...names, total: formatMoney(-net) })
+            : L('Chat.Even');
     const content = `
         <div class="dh-lootbox-sale">
-            <h3>${F('Chat.Title', { merchant: esc(merchant.name) })}</h3>
-            <ul>${rows}</ul>
-            <p><strong>${F('Chat.Total', { seller: esc(seller.name), total: formatMoney(total) })}</strong></p>
-            ${refusedLine}
+            <h3>${F('Chat.Title', { merchant: names.merchant })}</h3>
+            ${sold.length ? `<p><strong>${F('Chat.Sold', names)}</strong></p><ul>${list(sold)}</ul>` : ''}
+            ${bought.length ? `<p><strong>${F('Chat.Bought', names)}</strong></p><ul>${list(bought)}</ul>` : ''}
+            <p><strong>${balance}</strong></p>
+            ${refused.length ? `<p class="hint">${F('Chat.Refused', { names: refused.map(esc).join(', ') })}</p>` : ''}
         </div>`;
     const whisper = new Set(ChatMessage.getWhisperRecipients('GM').map(u => u.id));
     whisper.add(user.id);
     await ChatMessage.create({ content, whisper: [...whisper], speaker: { alias: merchant.name } });
 }
 
-/** Sends the sale to the active GM and waits for the answer. */
-async function requestSale(merchant, seller, lines) {
-    const payload = { userId: game.user.id, merchantUuid: merchant.uuid, sellerUuid: seller.uuid, lines };
+/** Sends the trade to the active GM and waits for the answer. */
+async function requestTrade(merchant, customer, sell, buy) {
+    const payload = { userId: game.user.id, merchantUuid: merchant.uuid, customerUuid: customer.uuid, sell, buy };
     const gm = game.users.activeGM;
     if (!gm) return fail('NoGM');
-    if (gm.isSelf) return handleSellQuery(payload);
+    if (gm.isSelf) return handleTradeQuery(payload);
     try {
         return await gm.query(QUERY_NAME, payload, { timeout: QUERY_TIMEOUT });
     } catch (err) {
-        console.error(`${MODULE_ID} | Sale query failed`, err);
+        console.error(`${MODULE_ID} | Trade query failed`, err);
         return fail('Timeout');
     }
 }
@@ -398,6 +540,7 @@ function errorMessage(result) {
     const key = `DHLOOTBOX.Trade.Errors.${result?.reason ?? 'Failed'}`;
     const data = {
         total: result?.total !== undefined ? formatMoney(result.total) : '',
+        name: result?.name ?? '',
         names: (result?.refused ?? []).join(', '),
         error: result?.error ?? ''
     };
@@ -408,14 +551,15 @@ function errorMessage(result) {
 /*  Trade counter (player window)                                             */
 /* -------------------------------------------------------------------------- */
 
-const appId = (prefix, actor) => `${prefix}-${actor.uuid.replace(/\./g, '-')}`;
+const appId = (prefix, actor) => `${prefix}-${actor ? actor.uuid.replace(/\./g, '-') : 'world'}`;
 
 export class TradeCounter extends HandlebarsApplicationMixin(ApplicationV2) {
     static DEFAULT_OPTIONS = {
         classes: ['dh-lootbox-trade'],
         window: { icon: 'fa-solid fa-scale-balanced', resizable: true },
-        position: { width: 480, height: 'auto' },
+        position: { width: 520, height: 'auto' },
         actions: {
+            addBuy: TradeCounter.#onAddBuy,
             removeLine: TradeCounter.#onRemoveLine,
             clear: TradeCounter.#onClear,
             confirm: TradeCounter.#onConfirm
@@ -423,12 +567,18 @@ export class TradeCounter extends HandlebarsApplicationMixin(ApplicationV2) {
     };
 
     static PARTS = {
-        body: { template: `modules/${MODULE_ID}/templates/trade-counter.hbs` }
+        body: {
+            template: `modules/${MODULE_ID}/templates/trade-counter.hbs`,
+            templates: [
+                `modules/${MODULE_ID}/templates/trade-counter.hbs`,
+                `modules/${MODULE_ID}/templates/trade-line.hbs`
+            ]
+        }
     };
 
     static #instances = new Map();
 
-    /** Opens (or brings forward) the counter of a merchant, optionally adding an item to it. */
+    /** Opens (or brings forward) the counter of a merchant, optionally putting an item up for sale. */
     static async open(merchant, { item } = {}) {
         if (!isMerchant(merchant)) return null;
         let app = TradeCounter.#instances.get(merchant.uuid);
@@ -445,59 +595,77 @@ export class TradeCounter extends HandlebarsApplicationMixin(ApplicationV2) {
     constructor({ merchant, ...options } = {}) {
         super({ id: appId('dh-lootbox-trade', merchant), ...options });
         this.merchant = merchant;
-        this.seller = TradeCounter.#defaultSeller();
-        /** @type {Map<string, number>} item id → quantity offered */
-        this.lines = new Map();
+        this.customer = TradeCounter.#defaultCustomer();
+        /** @type {Map<string, number>} customer item id → quantity offered to her */
+        this.sellLines = new Map();
+        /** @type {Map<string, number>} merchant item id → quantity the customer wants */
+        this.buyLines = new Map();
         this.busy = false;
         this.hookIds = [];
     }
 
-    static #defaultSeller() {
+    /** Characters the current user can trade for. */
+    static #ownedCharacters() {
+        return game.actors.filter(a => a.type === 'character' && a.isOwner);
+    }
+
+    static #defaultCustomer() {
         const character = game.user.character;
-        return character?.isOwner ? character : null;
+        if (character?.isOwner) return character;
+        const owned = game.user.isGM ? [] : TradeCounter.#ownedCharacters();
+        return owned.length === 1 ? owned[0] : null;
     }
 
     get title() {
         return F('CounterTitle', { name: this.merchant.name });
     }
 
-    /** Puts an item from the player's sheet on the counter. Nothing leaves the sheet yet. */
+    #setCustomer(actor) {
+        if (this.customer?.uuid === actor?.uuid) return;
+        if (this.sellLines.size) {
+            this.sellLines.clear();
+            ui.notifications.info(F('CustomerChanged', { name: actor?.name ?? '' }));
+        }
+        this.customer = actor;
+    }
+
+    /** Puts an item from the player's sheet up for sale. Nothing leaves the sheet yet. */
     async stage(item, { render = true } = {}) {
         const actor = item?.actor;
         if (!item || !actor) return ui.notifications.warn(L('Warn.DropFromSheet'));
         if (actor.uuid === this.merchant.uuid) return;
         if (!actor.isOwner) return ui.notifications.warn(L('Warn.NotYourItem'));
         if (!SELLABLE_TYPES.includes(item.type)) return ui.notifications.warn(F('Warn.NotSellable', { name: item.name }));
-        if (this.seller && this.seller.uuid !== actor.uuid) {
-            if (this.lines.size) return ui.notifications.warn(F('Warn.OneSeller', { name: this.seller.name }));
+        if (this.customer && this.customer.uuid !== actor.uuid && this.sellLines.size) {
+            return ui.notifications.warn(F('Warn.OneSeller', { name: this.customer.name }));
         }
-        this.seller = actor;
-        const current = this.lines.get(item.id) ?? 0;
-        this.lines.set(item.id, Math.min(itemQuantity(item), current + 1) || 1);
+        this.#setCustomer(actor);
+        const current = this.sellLines.get(item.id) ?? 0;
+        this.sellLines.set(item.id, Math.min(itemQuantity(item), current + 1) || 1);
         if (render) this.render();
     }
 
-    async _prepareContext(options) {
-        const context = await super._prepareContext(options);
-        const config = getMerchantConfig(this.merchant);
-        const lines = [];
+    /** Builds the display rows for one side of the deal and returns their total. */
+    async #lines(map, owner, priceOf, problemOf, side) {
+        const rows = [];
         let total = 0;
-        for (const [itemId, wanted] of [...this.lines]) {
-            const item = this.seller?.items.get(itemId);
+        for (const [itemId, wanted] of [...map]) {
+            const item = owner?.items.get(itemId);
             if (!item) {
-                this.lines.delete(itemId);
+                map.delete(itemId);
                 continue;
             }
             const max = Math.max(1, itemQuantity(item));
             const quantity = Math.min(Math.max(1, wanted), max);
-            this.lines.set(itemId, quantity);
-            const problem = sellProblem(item);
-            const unit = problem ? 0 : await unitPrice(this.merchant, item, config);
+            map.set(itemId, quantity);
+            const problem = problemOf(item);
+            const unit = problem ? 0 : await priceOf(item);
             const refused = unit <= 0;
             const subtotal = refused ? 0 : unit * quantity;
             total += subtotal;
-            lines.push({
+            rows.push({
                 id: itemId,
+                side,
                 name: item.name,
                 img: item.img,
                 quantity,
@@ -506,24 +674,85 @@ export class TradeCounter extends HandlebarsApplicationMixin(ApplicationV2) {
                 quantityLabel: F('QuantityLabel', { name: item.name }),
                 refused,
                 priceLabel: refused
-                    ? L(problem ? `Problem.${problem}` : 'WontBuy')
+                    ? L(problem ? `Problem.${problem}` : side === 'sell' ? 'WontBuy' : 'NotForSale')
                     : quantity > 1
                     ? F('PriceEach', { total: formatMoney(subtotal), each: formatMoney(unit) })
                     : formatMoney(unit)
             });
         }
-        const broke = !config.unlimitedPurse && total > goldToBase(this.merchant.system?.gold);
+        return { rows, total };
+    }
+
+    async _prepareContext(options) {
+        const context = await super._prepareContext(options);
+        const config = getMerchantConfig(this.merchant);
+        const merchant = this.merchant;
+
+        const sell = await this.#lines(
+            this.sellLines,
+            this.customer,
+            item => unitPrice(merchant, item, config),
+            sellProblem,
+            'sell'
+        );
+        const buy = await this.#lines(
+            this.buyLines,
+            merchant,
+            item => askPrice(merchant, item, config),
+            stockProblem,
+            'buy'
+        );
+
+        const stock = [];
+        for (const item of merchant.items) {
+            if (!SELLABLE_TYPES.includes(item.type)) continue;
+            const quantity = itemQuantity(item);
+            const unit = stockProblem(item) ? 0 : await askPrice(merchant, item, config);
+            const inCart = this.buyLines.get(item.id) ?? 0;
+            stock.push({
+                id: item.id,
+                name: item.name,
+                img: item.img,
+                quantity,
+                forSale: unit > 0,
+                priceLabel: unit > 0 ? formatMoney(unit) : L('NotForSale'),
+                canAdd: unit > 0 && inCart < quantity,
+                addLabel: F('AddToCart', { name: item.name })
+            });
+        }
+        stock.sort((a, b) => Number(b.forSale) - Number(a.forSale) || a.name.localeCompare(b.name, game.i18n.lang));
+
+        const net = sell.total - buy.total;
+        const merchantBroke = net > 0 && !config.unlimitedPurse && net > goldToBase(merchant.system?.gold);
+        const customerBroke = net < 0 && !!this.customer && -net > goldToBase(this.customer.system?.gold);
         const hasGM = !!game.users.activeGM;
+
+        const characters = TradeCounter.#ownedCharacters();
+        if (this.customer && !characters.some(a => a.uuid === this.customer.uuid)) characters.unshift(this.customer);
+
         return Object.assign(context, {
-            merchant: { name: this.merchant.name, img: this.merchant.img },
-            seller: this.seller ? { name: this.seller.name, img: this.seller.img } : null,
-            lines,
-            hasLines: lines.length > 0,
-            totalLabel: formatMoney(total),
-            broke,
+            merchant: { name: merchant.name, img: merchant.img },
+            customers: characters.map(a => ({ uuid: a.uuid, name: a.name, selected: a.uuid === this.customer?.uuid })),
+            customer: this.customer ? { name: this.customer.name } : null,
+            sellLines: sell.rows,
+            buyLines: buy.rows,
+            stock,
+            hasLines: sell.rows.length > 0 || buy.rows.length > 0,
+            paidLabel: formatMoney(sell.total),
+            chargedLabel: formatMoney(buy.total),
+            balanceLabel:
+                net > 0
+                    ? F('BalanceReceive', { total: formatMoney(net) })
+                    : net < 0
+                    ? F('BalancePay', { total: formatMoney(-net) })
+                    : L('BalanceEven'),
+            merchantBroke,
+            customerBroke,
+            noCustomer: !this.customer,
             hasGM,
             busy: this.busy,
-            canConfirm: total > 0 && !broke && hasGM && !this.busy
+            canConfirm:
+                sell.total + buy.total > 0 && !!this.customer && !merchantBroke && !customerBroke && hasGM && !this.busy
         });
     }
 
@@ -532,7 +761,7 @@ export class TradeCounter extends HandlebarsApplicationMixin(ApplicationV2) {
         this.element.addEventListener('dragover', event => event.preventDefault());
         this.element.addEventListener('drop', event => this.#onDrop(event));
 
-        const relevant = actor => actor && [this.seller?.uuid, this.merchant.uuid].includes(actor.uuid);
+        const relevant = actor => actor && [this.customer?.uuid, this.merchant.uuid].includes(actor.uuid);
         const rerender = () => this.rendered && this.render();
         const onItem = item => relevant(item.parent) && rerender();
         this.hookIds = [
@@ -548,10 +777,16 @@ export class TradeCounter extends HandlebarsApplicationMixin(ApplicationV2) {
         super._onRender(context, options);
         for (const input of this.element.querySelectorAll('input[name="quantity"]')) {
             input.addEventListener('change', () => {
-                this.lines.set(input.dataset.itemId, Math.max(1, Math.floor(Number(input.value) || 1)));
+                const map = input.dataset.side === 'buy' ? this.buyLines : this.sellLines;
+                map.set(input.dataset.itemId, Math.max(1, Math.floor(Number(input.value) || 1)));
                 this.render();
             });
         }
+        this.element.querySelector('select[name="customer"]')?.addEventListener('change', async event => {
+            const actor = event.currentTarget.value ? await fromUuid(event.currentTarget.value) : null;
+            this.#setCustomer(actor);
+            this.render();
+        });
     }
 
     _onClose(options) {
@@ -570,28 +805,44 @@ export class TradeCounter extends HandlebarsApplicationMixin(ApplicationV2) {
         await this.stage(item);
     }
 
+    static #onAddBuy(_event, target) {
+        const item = this.merchant.items.get(target.dataset.itemId);
+        if (!item) return;
+        const current = this.buyLines.get(item.id) ?? 0;
+        this.buyLines.set(item.id, Math.min(itemQuantity(item), current + 1) || 1);
+        this.render();
+    }
+
     static #onRemoveLine(_event, target) {
-        this.lines.delete(target.dataset.itemId);
+        const map = target.dataset.side === 'buy' ? this.buyLines : this.sellLines;
+        map.delete(target.dataset.itemId);
         this.render();
     }
 
     static #onClear() {
-        this.lines.clear();
+        this.sellLines.clear();
+        this.buyLines.clear();
         this.render();
     }
 
     static async #onConfirm() {
-        if (!this.seller || this.busy || !this.lines.size) return;
-        const lines = [...this.lines].map(([itemId, quantity]) => ({ itemId, quantity }));
+        if (this.busy || !this.customer || !(this.sellLines.size || this.buyLines.size)) return;
+        const toLines = map => [...map].map(([itemId, quantity]) => ({ itemId, quantity }));
         this.busy = true;
         await this.render();
-        const result = await requestSale(this.merchant, this.seller, lines);
+        const result = await requestTrade(this.merchant, this.customer, toLines(this.sellLines), toLines(this.buyLines));
         this.busy = false;
         if (result?.ok) {
+            const names = { merchant: this.merchant.name, customer: this.customer.name };
             ui.notifications.info(
-                F('Sold', { merchant: this.merchant.name, seller: this.seller.name, total: formatMoney(result.total) })
+                result.net > 0
+                    ? F('DoneReceived', { ...names, total: formatMoney(result.net) })
+                    : result.net < 0
+                    ? F('DonePaid', { ...names, total: formatMoney(-result.net) })
+                    : F('DoneEven', names)
             );
-            this.lines.clear();
+            this.sellLines.clear();
+            this.buyLines.clear();
             await this.close();
         } else {
             ui.notifications.warn(errorMessage(result));
@@ -601,7 +852,7 @@ export class TradeCounter extends HandlebarsApplicationMixin(ApplicationV2) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Price table (GM window)                                                   */
+/*  Price list (GM window): a chest's own list or the world's default          */
 /* -------------------------------------------------------------------------- */
 
 export class PriceTable extends HandlebarsApplicationMixin(ApplicationV2) {
@@ -609,19 +860,28 @@ export class PriceTable extends HandlebarsApplicationMixin(ApplicationV2) {
         tag: 'form',
         classes: ['dh-lootbox-prices'],
         window: { icon: 'fa-solid fa-tags', resizable: true },
-        position: { width: 580, height: 'auto' },
+        position: { width: 640, height: 'auto' },
         form: { handler: PriceTable.#onSubmit, closeOnSubmit: true },
         actions: {
             removeOverride: PriceTable.#onRemoveOverride,
-            fillFromStock: PriceTable.#onFillFromStock
+            fillFromStock: PriceTable.#onFillFromStock,
+            useDefault: PriceTable.#onUseDefault,
+            editDefault: PriceTable.#onEditDefault
         }
     };
 
     static PARTS = {
-        body: { template: `modules/${MODULE_ID}/templates/price-table.hbs` }
+        body: {
+            template: `modules/${MODULE_ID}/templates/price-table.hbs`,
+            templates: [
+                `modules/${MODULE_ID}/templates/price-table.hbs`,
+                `modules/${MODULE_ID}/templates/price-grid.hbs`
+            ]
+        }
     };
 
-    static open(merchant) {
+    /** Opens the price list of `merchant`, or the world's default list when `merchant` is null. */
+    static open(merchant = null) {
         if (!game.user.isGM) return null;
         const existing = foundry.applications.instances?.get(appId('dh-lootbox-prices', merchant));
         if (existing) {
@@ -634,44 +894,57 @@ export class PriceTable extends HandlebarsApplicationMixin(ApplicationV2) {
         return app;
     }
 
-    constructor({ merchant, ...options } = {}) {
+    constructor({ merchant = null, ...options } = {}) {
         super({ id: appId('dh-lootbox-prices', merchant), ...options });
         this.merchant = merchant;
-        this.draft = getMerchantConfig(merchant);
+        this.draft = merchant ? getMerchantConfig(merchant) : normalizeConfig(worldDefaultPrices());
     }
 
     get title() {
-        return F('Prices.Title', { name: this.merchant.name });
+        return this.merchant ? F('Prices.Title', { name: this.merchant.name }) : L('Prices.DefaultTitle');
     }
 
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
         const step = smallestUnit() / HANDFUL;
-        const toInput = base => Math.round((base / HANDFUL) * 10) / 10;
+        const toInput = base => (base === null ? '' : Math.round((base / HANDFUL) * 10) / 10);
         const coinsOn = enabledDenominations().some(([key]) => key === 'coins');
-        return Object.assign(context, {
-            unlimitedPurse: this.draft.unlimitedPurse,
-            step,
-            unitHint: coinsOn ? L('Prices.UnitHintCoins') : L('Prices.UnitHint'),
-            tiers: [1, 2, 3, 4].map(tier => F('Prices.Tier', { tier })),
-            categories: SELLABLE_TYPES.map(type => {
+        const grid = (source, name) =>
+            SELLABLE_TYPES.map(type => {
                 const label = L(`Category.${type}`);
                 return {
                     type,
                     label,
-                    cells: this.draft.defaults[type].map((base, index) => ({
+                    cells: source[type].map((base, index) => ({
                         index,
+                        grid: name,
                         value: toInput(base),
                         aria: `${label} — ${F('Prices.Tier', { tier: index + 1 })}`
                     }))
                 };
-            }),
+            });
+        const defaultFor = (source, o) =>
+            o.type && SELLABLE_TYPES.includes(o.type) ? toInput(source[o.type][(o.tier || 1) - 1]) : L('Prices.DefaultPlaceholder');
+        return Object.assign(context, {
+            isWorld: !this.merchant,
+            usesDefault: !!this.merchant && !hasOwnPrices(this.merchant),
+            hasOwn: !!this.merchant && hasOwnPrices(this.merchant),
+            unlimitedPurse: this.draft.unlimitedPurse,
+            step,
+            unitHint: coinsOn ? L('Prices.UnitHintCoins') : L('Prices.UnitHint'),
+            tiers: [1, 2, 3, 4].map(tier => F('Prices.Tier', { tier })),
+            buyGrid: grid(this.draft.defaults, 'defaults'),
+            sellGrid: grid(this.draft.sellDefaults, 'sellDefaults'),
             overrides: this.draft.overrides.map((o, index) => ({
                 index,
                 name: o.name,
                 img: o.img,
-                value: toInput(o.price),
-                label: o.price > 0 ? formatMoney(roundToUnit(o.price)) : L('WontBuy')
+                price: toInput(o.price),
+                sellPrice: toInput(o.sellPrice),
+                pricePlaceholder: defaultFor(this.draft.defaults, o),
+                sellPlaceholder: defaultFor(this.draft.sellDefaults, o),
+                payLabel: F('Prices.PaysFor', { name: o.name }),
+                chargeLabel: F('Prices.ChargesFor', { name: o.name })
             }))
         });
     }
@@ -688,21 +961,20 @@ export class PriceTable extends HandlebarsApplicationMixin(ApplicationV2) {
         this.element.querySelector('[name="unlimitedPurse"]')?.addEventListener('change', event => {
             this.draft.unlimitedPurse = event.currentTarget.checked;
         });
-        for (const input of this.element.querySelectorAll('input[data-default-type]')) {
+        for (const input of this.element.querySelectorAll('input[data-grid]')) {
             input.addEventListener('input', () => {
-                this.draft.defaults[input.dataset.defaultType][Number(input.dataset.tierIndex)] = toBase(input);
+                this.draft[input.dataset.grid][input.dataset.defaultType][Number(input.dataset.tierIndex)] = toBase(input);
             });
         }
         for (const input of this.element.querySelectorAll('input[data-override-index]')) {
             input.addEventListener('input', () => {
                 const override = this.draft.overrides[Number(input.dataset.overrideIndex)];
-                if (override) override.price = toBase(input);
+                if (override) override[input.dataset.field] = input.value === '' ? null : toBase(input);
             });
-            input.addEventListener('change', () => this.render());
         }
     }
 
-    /** Adds an item to the per-item list, starting from the price it would get now. */
+    /** Adds an item to the per-item list; empty prices follow the defaults until filled in. */
     async #addOverride(item, { quiet = false } = {}) {
         if (!SELLABLE_TYPES.includes(item?.type)) {
             if (!quiet) ui.notifications.warn(F('Warn.NotSellable', { name: item?.name ?? '?' }));
@@ -713,8 +985,8 @@ export class PriceTable extends HandlebarsApplicationMixin(ApplicationV2) {
             if (!quiet) ui.notifications.info(F('Prices.AlreadyListed', { name: item.name }));
             return false;
         }
-        const price = await unitPrice(this.merchant, item, { ...this.draft, overrides: [] });
-        this.draft.overrides.push({ key, name: item.name, img: item.img, price });
+        const tier = itemTier(item, await loadRarityIndex());
+        this.draft.overrides.push({ key, name: item.name, img: item.img, type: item.type, tier, price: null, sellPrice: null });
         return true;
     }
 
@@ -733,6 +1005,7 @@ export class PriceTable extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     static async #onFillFromStock() {
+        if (!this.merchant) return;
         let added = 0;
         for (const item of this.merchant.items) {
             if (await this.#addOverride(item, { quiet: true })) added++;
@@ -741,9 +1014,27 @@ export class PriceTable extends HandlebarsApplicationMixin(ApplicationV2) {
         this.render();
     }
 
+    /** Drops the chest's own list so it follows the world's default again. */
+    static async #onUseDefault() {
+        if (!this.merchant) return;
+        await this.merchant.update({ [`flags.${MODULE_ID}.-=${CONFIG_FLAG}`]: null });
+        ui.notifications.info(F('Prices.UsingDefault', { name: this.merchant.name }));
+        await this.close();
+    }
+
+    static #onEditDefault() {
+        PriceTable.open(null);
+    }
+
     static async #onSubmit() {
-        await this.merchant.update({ [`flags.${MODULE_ID}.${CONFIG_FLAG}`]: foundry.utils.deepClone(this.draft) });
-        ui.notifications.info(F('Prices.Saved', { name: this.merchant.name }));
+        const data = foundry.utils.deepClone(this.draft);
+        if (this.merchant) {
+            await this.merchant.update({ [`flags.${MODULE_ID}.${CONFIG_FLAG}`]: data });
+            ui.notifications.info(F('Prices.Saved', { name: this.merchant.name }));
+        } else {
+            await game.settings.set(MODULE_ID, DEFAULT_PRICES_SETTING, data);
+            ui.notifications.info(L('Prices.DefaultSaved'));
+        }
     }
 }
 
@@ -752,7 +1043,13 @@ export class PriceTable extends HandlebarsApplicationMixin(ApplicationV2) {
 /* -------------------------------------------------------------------------- */
 
 export function registerTrade() {
-    CONFIG.queries[QUERY_NAME] = handleSellQuery;
+    game.settings.register(MODULE_ID, DEFAULT_PRICES_SETTING, {
+        scope: 'world',
+        config: false,
+        type: Object,
+        default: {}
+    });
+    CONFIG.queries[QUERY_NAME] = handleTradeQuery;
 }
 
 export const tradeApi = {
@@ -760,7 +1057,9 @@ export const tradeApi = {
     isMerchant,
     getMerchantConfig,
     unitPrice,
+    askPrice,
     formatMoney,
     openTradeCounter: (merchant, options) => TradeCounter.open(merchant, options),
-    openPriceTable: merchant => PriceTable.open(merchant)
+    openPriceTable: merchant => PriceTable.open(merchant ?? null),
+    openDefaultPriceTable: () => PriceTable.open(null)
 };

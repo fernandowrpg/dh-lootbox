@@ -57,55 +57,71 @@ check what the merchant sells and how many of each; the module creates an Actor
 (same sheet as the chests) holding that stock, ready for players to drag items onto
 their character sheet.
 
-## Merchant: buying items from the players
+## Merchant: buying and selling with the players
 
-Any chest (or shop) can become a **merchant** who buys items from the players.
-The GM sets what she pays; when the player confirms, the items go to her and the
-gold goes to the character automatically.
+Any chest — a rolled loot chest, a consumables shop or one you filled by hand —
+can be **put up for sale**. It becomes a merchant: players buy from her stock
+and sell her items from their sheets, at prices the GM sets. When the player
+confirms, the items move both ways and only the difference in gold changes hands.
 
-**GM — setting up a merchant**
+**GM — putting a chest up for sale**
 
-1. Open the chest's sheet and click **"Make merchant"** in the header. The
-   chest's default permission becomes **Observer**: players can see the stock
-   but can no longer take items from it or change it (the previous permission
-   comes back if you click **"Stop being a merchant"**).
-2. The **Price list** opens (it is also in the header):
-   - **Default price by type and Tier**: what she pays per unit for weapons,
-     armor, consumables and loot items. Weapons and armor use the item's Tier;
-     consumables and loot use their rarity in the system's "Loot" and
-     "Consumables" tables (Common = Tier 1 … Legendary = Tier 4).
-   - **Per-item prices**: drag items from a compendium, the sidebar or a sheet
-     onto the list to give them their own price, which overrides the default.
-     **"Add her stock"** fills the list with what she already has.
-   - Values are in **handfuls** (10 handfuls = 1 bag, 10 bags = 1 chest; with
-     coins enabled in the system's Homebrew settings, use decimals: 0.5 = 5
-     coins). **0 means she doesn't buy it.**
-   - **Bottomless purse**: when unchecked, she pays from the gold on her own
-     sheet and refuses sales above what she has. When checked, her gold is not
-     touched.
+- On an existing chest, click **"Put up for sale (merchant)"** in the sheet
+  header. To create chests (or a shop) already for sale, tick **"Put up for
+  sale"** in the generation dialog — handy for treasure chests you drop on the
+  scene.
+- A chest for sale gets **Observer** as default permission: players see the
+  stock but can't take items or change anything. **"Take off sale"** brings the
+  previous permission back.
 
-**Player — selling**
+**GM — prices**
 
-1. Open the merchant's sheet and drag an item from your character sheet onto
-   it (or onto the **Trade counter** window, opened from the header).
-2. The counter lists each item with what she pays for it. Adjust quantities,
-   remove what you don't want to sell, and check the total. Items she won't buy,
-   or that are equipped, are marked and don't count.
-3. **Confirm sale**. The items stay on your sheet until this moment.
+- **Default price list** (button **"Default list"** in any price list window,
+  or `api.openDefaultPriceTable()`): used by every chest for sale that has no
+  list of its own, so generated chests are ready to trade.
+- **Price list** of a chest (button in its header): saving it gives that chest
+  its own list; **"Use the default list"** goes back to the default one.
+- Each list has two grids, **what she pays** (buying from players) and **what
+  she charges** (selling to players), per item type and Tier. Weapons and armor
+  use the item's Tier; consumables and loot use their rarity in the system's
+  "Loot" and "Consumables" tables (Common = Tier 1 … Legendary = Tier 4).
+- **Per-item prices**: drag items from a compendium, the sidebar or a sheet onto
+  the list to give them their own "pays" and "charges" prices. An empty field
+  follows the grid; **"Add her stock"** lists everything she has.
+- Values are in **handfuls** (10 handfuls = 1 bag, 10 bags = 1 chest; with coins
+  enabled in the system's Homebrew settings, use decimals: 0.5 = 5 coins).
+  **0 means she doesn't trade the item that way** (won't buy it / not for sale).
+- **Bottomless purse**: when unchecked, she pays from the gold on her own sheet
+  (refusing what she can't afford) and keeps what she receives. When checked,
+  her gold never changes.
 
-**How the sale is carried out**
+**Player — the trade counter**
 
-- The player has no permission on the merchant, so the counter sends the sale
+1. Open the merchant's sheet and click **"Trade counter"** (dragging an item
+   from your sheet onto hers also opens it). Pick your **character** at the top
+   if you have more than one.
+2. **You sell**: drag items from your sheet onto the counter.
+   **You buy**: click **+** next to an item in her stock.
+3. Adjust quantities and check the sums: what she pays, what she charges and
+   the balance ("you receive" or "you pay"). Items she won't trade, or that are
+   equipped, are marked and don't count.
+4. **Confirm trade**. Nothing moves until this moment.
+
+**How the trade is carried out**
+
+- The player has no permission on the merchant, so the counter sends the trade
   to the **active GM** as a Foundry query (`CONFIG.queries`, v13+). The GM's
-  client checks it again (owner of the character, quantities, prices, her gold)
-  and then moves everything: the items to the merchant (consumables and loot
-  stack with what she has) and the gold to the character, split into chests,
-  bags and handfuls.
-- One sale runs at a time, so two players can't spend the same purse.
+  client checks it again (owner of the character, quantities, stock, prices,
+  both purses) and then moves everything: items both ways (consumables and loot
+  stack with what each side has) and the difference in gold, giving change when
+  a larger coin has to be broken.
+- One trade runs at a time, so two players can't spend the same purse or buy
+  the same item twice.
 - A summary is whispered to the GM and the player. **A GM must be connected**;
   otherwise the counter says so and nothing moves.
-- From macros: `api.setMerchant(actor, true)`, `api.openPriceTable(actor)` and
-  `api.openTradeCounter(actor)` on `game.modules.get('dh-lootbox').api`.
+- From macros: `api.setMerchant(actor, true)`, `api.openPriceTable(actor)`,
+  `api.openDefaultPriceTable()` and `api.openTradeCounter(actor)` on
+  `game.modules.get('dh-lootbox').api`.
 
 ## How to use it
 
@@ -147,8 +163,8 @@ gold goes to the character automatically.
   the chest (including deleting items) — this is the simplest model for a
   shared loot container. If you want to restrict it, adjust permissions
   manually from the Actor sheet (gear icon in the window header). A
-  **merchant** is the exception: she is set to Observer (see above), and only
-  the GM can hand her stock out.
+  **chest for sale** is the exception: it is set to Observer (see above), and
+  players get its items by buying them at the trade counter.
 - The gold amounts per Tier are an approximate suggestion (the site doesn't
   define a fixed "gold per chest" table); adjust the values on the chest
   sheet at any time before handing it to the players.

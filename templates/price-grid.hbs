@@ -1,0 +1,21 @@
+<table class="dhl-defaults">
+    <thead>
+        <tr>
+            <th></th>
+            {{#each tiers}}<th scope="col">{{this}}</th>{{/each}}
+        </tr>
+    </thead>
+    <tbody>
+        {{#each rows}}
+            <tr>
+                <th scope="row">{{label}}</th>
+                {{#each cells}}
+                    <td>
+                        <input type="number" min="0" step="{{@root.step}}" value="{{value}}" data-grid="{{grid}}"
+                            data-default-type="{{../type}}" data-tier-index="{{index}}" aria-label="{{aria}}">
+                    </td>
+                {{/each}}
+            </tr>
+        {{/each}}
+    </tbody>
+</table>

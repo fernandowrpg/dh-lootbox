@@ -1,0 +1,15 @@
+<li class="dhl-trade-line{{#if refused}} refused{{/if}}">
+    <img src="{{img}}" alt="">
+    <span class="dhl-name">{{name}}</span>
+    {{#if quantifiable}}
+        <input type="number" name="quantity" value="{{quantity}}" min="1" max="{{max}}" step="1"
+            data-side="{{side}}" data-item-id="{{id}}" aria-label="{{quantityLabel}}">
+    {{else}}
+        <span class="dhl-qty">1</span>
+    {{/if}}
+    <span class="dhl-price">{{priceLabel}}</span>
+    <button type="button" class="dhl-icon" data-action="removeLine" data-side="{{side}}" data-item-id="{{id}}"
+        data-tooltip="DHLOOTBOX.Trade.RemoveLine" aria-label="{{localize "DHLOOTBOX.Trade.RemoveLine"}}">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+    </button>
+</li>

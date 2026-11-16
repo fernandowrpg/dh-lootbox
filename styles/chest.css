@@ -323,3 +323,83 @@
     margin: 0.25rem 0 0.5rem 1rem;
     padding: 0;
 }
+
+/* Two-way trade: customer picker, the two sides, her stock and the sums. */
+
+.dhl-trade-who {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.dhl-customer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.dhl-customer select {
+    flex: 1;
+    min-width: 0;
+}
+
+.dhl-trade-side h3,
+.dhl-stock summary {
+    margin: 0 0 0.25rem;
+    border: none;
+    font-size: 1em;
+    font-weight: 600;
+    color: #b8860b;
+}
+
+.dhl-stock summary {
+    cursor: pointer;
+}
+
+.dhl-stock .dhl-trade-lines {
+    border-style: solid;
+    max-height: 260px;
+}
+
+.dhl-trade-sums {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.1rem 0.75rem;
+    margin: 0;
+    font-size: 0.9em;
+}
+
+.dhl-trade-sums dt {
+    text-align: right;
+    opacity: 0.8;
+}
+
+.dhl-trade-sums dd {
+    margin: 0;
+    text-align: right;
+}
+
+.dhl-buttons {
+    flex-wrap: wrap;
+}
+
+.dhl-overrides .dhl-trade-line input[type="number"] {
+    width: 5rem;
+}
+
+.dhl-overrides-head {
+    font-size: 0.8em;
+    opacity: 0.8;
+}
+
+.dhl-overrides-head .dhl-col {
+    width: 5rem;
+    flex: none;
+    text-align: center;
+}
+
+.dhl-overrides-head .dhl-name {
+    margin-left: calc(28px + 0.5rem);
+}
