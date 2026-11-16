@@ -91,9 +91,15 @@ confirms, the items move both ways and only the difference in gold changes hands
 - Values are in **handfuls** (10 handfuls = 1 bag, 10 bags = 1 chest; with coins
   enabled in the system's Homebrew settings, use decimals: 0.5 = 5 coins).
   **0 means she doesn't trade the item that way** (won't buy it / not for sale).
-- **Bottomless purse**: when unchecked, she pays from the gold on her own sheet
-  (refusing what she can't afford) and keeps what she receives. When checked,
-  her gold never changes.
+- **Trade purse**: where the gold of each trade comes from and goes to. By
+  default it is the chest being traded with. Pick **the merchant's chest** and
+  every chest using that list — e.g. treasure chests for sale on the scene,
+  through the default list — sells on her behalf: players pay into her chest
+  and she pays them from it. The items still come from / go to the chest the
+  player is trading with.
+- **Bottomless purse**: when unchecked, the purse pays from its own gold
+  (refusing what it can't afford) and keeps what it receives. When checked,
+  its gold never changes.
 
 **Player — the trade counter**
 

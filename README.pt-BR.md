@@ -93,9 +93,15 @@ a diferença em ouro muda de mão.
   moedas ativadas nas configurações de Homebrew do sistema, use decimais: 0,5 =
   5 moedas. **0 significa que ela não negocia o item daquele jeito** (não compra
   ou não vende).
-- **Bolsa sem fundo**: desmarcada, ela paga com o ouro da própria ficha (e
-  recusa o que não pode pagar) e guarda o que recebe. Marcada, o ouro dela
-  nunca muda.
+- **Bolsa da troca**: de onde sai e para onde vai o ouro de cada troca. Por
+  padrão é o próprio baú da troca. Escolha **o baú da lojista** e todo baú que
+  usa aquela tabela passa a vender em nome dela. Isso inclui os baús de tesouro
+  à venda na cena, pela tabela padrão. Os jogadores pagam para o baú dela e ela
+  paga a eles com o ouro desse baú. Os itens continuam saindo do baú da troca
+  (ou entrando nele).
+- **Bolsa sem fundo**: desmarcada, a bolsa paga com o próprio ouro (e recusa o
+  que não pode pagar) e guarda o que recebe. Marcada, o ouro da bolsa nunca
+  muda.
 
 **Jogador: o balcão de troca**
 

@@ -403,3 +403,14 @@
 .dhl-overrides-head .dhl-name {
     margin-left: calc(28px + 0.5rem);
 }
+
+.dhl-prices .dhl-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.dhl-prices .dhl-field select {
+    flex: 1;
+    min-width: 0;
+}

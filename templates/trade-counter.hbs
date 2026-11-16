@@ -64,6 +64,7 @@
         </dl>
         <p class="dhl-trade-total"><strong>{{balanceLabel}}</strong></p>
         {{#if noCustomer}}<p class="dhl-warning">{{localize "DHLOOTBOX.Trade.Errors.NoCustomer"}}</p>{{/if}}
+        {{#if purseMissing}}<p class="dhl-warning">{{localize "DHLOOTBOX.Trade.Errors.PurseMissing"}}</p>{{/if}}
         {{#if merchantBroke}}<p class="dhl-warning">{{localize "DHLOOTBOX.Trade.Errors.MerchantBrokeShort"}}</p>{{/if}}
         {{#if customerBroke}}<p class="dhl-warning">{{localize "DHLOOTBOX.Trade.Errors.CustomerBrokeShort"}}</p>{{/if}}
         {{#unless hasGM}}<p class="dhl-warning">{{localize "DHLOOTBOX.Trade.Errors.NoGM"}}</p>{{/unless}}

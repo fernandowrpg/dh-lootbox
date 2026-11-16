@@ -8,6 +8,17 @@
     {{/if}}
     <p class="hint">{{unitHint}}</p>
 
+    <label class="dhl-field">
+        <span>{{localize "DHLOOTBOX.Trade.Prices.Purse"}}</span>
+        <select name="purseUuid">
+            <option value="">{{localize "DHLOOTBOX.Trade.Prices.PurseSelf"}}</option>
+            {{#each purseOptions}}
+                <option value="{{uuid}}" {{#if selected}}selected{{/if}}>{{name}}</option>
+            {{/each}}
+        </select>
+    </label>
+    <p class="hint">{{localize "DHLOOTBOX.Trade.Prices.PurseChoiceHint"}}</p>
+
     <label class="dhl-check">
         <input type="checkbox" name="unlimitedPurse" {{checked unlimitedPurse}}>
         {{localize "DHLOOTBOX.Trade.Prices.UnlimitedPurse"}}

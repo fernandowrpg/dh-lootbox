@@ -172,6 +172,7 @@ function normalizeConfig(raw = {}) {
         }));
     return {
         unlimitedPurse: !!raw.unlimitedPurse,
+        purseUuid: typeof raw.purseUuid === 'string' && raw.purseUuid ? raw.purseUuid : null,
         defaults: readGrid(raw.defaults),
         sellDefaults: readGrid(raw.sellDefaults),
         overrides
@@ -190,6 +191,14 @@ function worldDefaultPrices() {
 export function getMerchantConfig(actor) {
     const own = actor?.getFlag?.(MODULE_ID, CONFIG_FLAG);
     return normalizeConfig(own ?? worldDefaultPrices());
+}
+
+/** The Actor whose gold pays for and receives the trades of `merchant`: the merchant's own chest
+ *  when her price list names one (so chests for sale on the scene sell on her behalf), otherwise
+ *  the chest itself. Null when the chest it names no longer exists. */
+export function getPurse(merchant, config = getMerchantConfig(merchant)) {
+    if (!config.purseUuid || config.purseUuid === merchant?.uuid) return merchant;
+    return fromUuidSync(config.purseUuid) ?? null;
 }
 
 /** Flags/ownership that turn a new chest into a merchant (used when generating chests). */
@@ -449,18 +458,23 @@ async function executeTrade({ userId, merchantUuid, customerUuid, sell, buy } = 
     const charged = bought.reduce((sum, line) => sum + line.subtotal, 0);
     const net = paid - charged; // > 0: she pays the player; < 0: the player pays her
 
+    // The gold moves between the player and the merchant's purse, which may be another chest.
+    const purse = getPurse(merchant, config);
+    if (!purse) return fail('PurseMissing');
+    if (purse.uuid === customer.uuid) return fail('Missing');
+
     let customerGold = {};
-    let merchantGold = {};
+    let purseGold = {};
     if (net > 0) {
         customerGold = addGold(customer.system?.gold, net);
         if (!config.unlimitedPurse) {
-            merchantGold = payGold(merchant.system?.gold, net);
-            if (!merchantGold) return fail('MerchantBroke', { total: net });
+            purseGold = payGold(purse.system?.gold, net);
+            if (!purseGold) return fail('MerchantBroke', { total: net });
         }
     } else if (net < 0) {
         customerGold = payGold(customer.system?.gold, -net);
         if (!customerGold) return fail('CustomerBroke', { total: -net, name: customer.name });
-        if (!config.unlimitedPurse) merchantGold = addGold(merchant.system?.gold, -net);
+        if (!config.unlimitedPurse) purseGold = addGold(purse.system?.gold, -net);
     }
 
     const merchantPlan = newPlan(merchant);
@@ -478,15 +492,16 @@ async function executeTrade({ userId, merchantUuid, customerUuid, sell, buy } = 
         await applyPlan(merchantPlan);
         await applyPlan(customerPlan);
         if (Object.keys(customerGold).length) await customer.update(customerGold);
-        if (Object.keys(merchantGold).length) await merchant.update(merchantGold);
+        if (Object.keys(purseGold).length) await purse.update(purseGold);
     } catch (err) {
         console.error(`${MODULE_ID} | Trade failed`, err);
         return fail('Failed', { error: err.message });
     }
 
-    await postTradeMessage({ user, merchant, customer, sold, bought, refused, net });
+    await postTradeMessage({ user, merchant, purse, customer, sold, bought, refused, net });
     return {
         ok: true,
+        purseName: purse.name,
         net,
         paid,
         charged,
@@ -496,18 +511,19 @@ async function executeTrade({ userId, merchantUuid, customerUuid, sell, buy } = 
     };
 }
 
-async function postTradeMessage({ user, merchant, customer, sold, bought, refused, net }) {
+async function postTradeMessage({ user, merchant, purse, customer, sold, bought, refused, net }) {
     const esc = foundry.utils.escapeHTML;
     const list = lines =>
         lines
             .map(l => `<li>${F('Chat.Line', { quantity: l.quantity, name: esc(l.item.name), subtotal: formatMoney(l.subtotal) })}</li>`)
             .join('');
     const names = { merchant: esc(merchant.name), customer: esc(customer.name) };
+    const payer = { ...names, merchant: esc(purse.name) };
     const balance =
         net > 0
-            ? F('Chat.ToCustomer', { ...names, total: formatMoney(net) })
+            ? F('Chat.ToCustomer', { ...payer, total: formatMoney(net) })
             : net < 0
-            ? F('Chat.ToMerchant', { ...names, total: formatMoney(-net) })
+            ? F('Chat.ToMerchant', { ...payer, total: formatMoney(-net) })
             : L('Chat.Even');
     const content = `
         <div class="dh-lootbox-sale">
@@ -723,7 +739,9 @@ export class TradeCounter extends HandlebarsApplicationMixin(ApplicationV2) {
         stock.sort((a, b) => Number(b.forSale) - Number(a.forSale) || a.name.localeCompare(b.name, game.i18n.lang));
 
         const net = sell.total - buy.total;
-        const merchantBroke = net > 0 && !config.unlimitedPurse && net > goldToBase(merchant.system?.gold);
+        const purse = getPurse(merchant, config);
+        const purseMissing = !purse;
+        const merchantBroke = !!purse && net > 0 && !config.unlimitedPurse && net > goldToBase(purse.system?.gold);
         const customerBroke = net < 0 && !!this.customer && -net > goldToBase(this.customer.system?.gold);
         const hasGM = !!game.users.activeGM;
 
@@ -747,12 +765,19 @@ export class TradeCounter extends HandlebarsApplicationMixin(ApplicationV2) {
                     ? F('BalancePay', { total: formatMoney(-net) })
                     : L('BalanceEven'),
             merchantBroke,
+            purseMissing,
             customerBroke,
             noCustomer: !this.customer,
             hasGM,
             busy: this.busy,
             canConfirm:
-                sell.total + buy.total > 0 && !!this.customer && !merchantBroke && !customerBroke && hasGM && !this.busy
+                sell.total + buy.total > 0 &&
+                !!this.customer &&
+                !purseMissing &&
+                !merchantBroke &&
+                !customerBroke &&
+                hasGM &&
+                !this.busy
         });
     }
 
@@ -761,7 +786,8 @@ export class TradeCounter extends HandlebarsApplicationMixin(ApplicationV2) {
         this.element.addEventListener('dragover', event => event.preventDefault());
         this.element.addEventListener('drop', event => this.#onDrop(event));
 
-        const relevant = actor => actor && [this.customer?.uuid, this.merchant.uuid].includes(actor.uuid);
+        const relevant = actor =>
+            actor && [this.customer?.uuid, this.merchant.uuid, getPurse(this.merchant)?.uuid].includes(actor.uuid);
         const rerender = () => this.rendered && this.render();
         const onItem = item => relevant(item.parent) && rerender();
         this.hookIds = [
@@ -833,7 +859,7 @@ export class TradeCounter extends HandlebarsApplicationMixin(ApplicationV2) {
         const result = await requestTrade(this.merchant, this.customer, toLines(this.sellLines), toLines(this.buyLines));
         this.busy = false;
         if (result?.ok) {
-            const names = { merchant: this.merchant.name, customer: this.customer.name };
+            const names = { merchant: result.purseName ?? this.merchant.name, customer: this.customer.name };
             ui.notifications.info(
                 result.net > 0
                     ? F('DoneReceived', { ...names, total: formatMoney(result.net) })
@@ -930,6 +956,7 @@ export class PriceTable extends HandlebarsApplicationMixin(ApplicationV2) {
             usesDefault: !!this.merchant && !hasOwnPrices(this.merchant),
             hasOwn: !!this.merchant && hasOwnPrices(this.merchant),
             unlimitedPurse: this.draft.unlimitedPurse,
+            purseOptions: this.#purseOptions(),
             step,
             unitHint: coinsOn ? L('Prices.UnitHintCoins') : L('Prices.UnitHint'),
             tiers: [1, 2, 3, 4].map(tier => F('Prices.Tier', { tier })),
@@ -949,6 +976,18 @@ export class PriceTable extends HandlebarsApplicationMixin(ApplicationV2) {
         });
     }
 
+    /** Chests that can hold the gold: every other chest of this module. */
+    #purseOptions() {
+        const chests = game.actors
+            .filter(a => a.uuid !== this.merchant?.uuid && (a.getFlag(MODULE_ID, 'isChest') || isMerchant(a)))
+            .sort((a, b) => a.name.localeCompare(b.name, game.i18n.lang))
+            .map(a => ({ uuid: a.uuid, name: a.name, selected: a.uuid === this.draft.purseUuid }));
+        if (this.draft.purseUuid && !chests.some(c => c.selected) && this.draft.purseUuid !== this.merchant?.uuid) {
+            chests.unshift({ uuid: this.draft.purseUuid, name: L('Prices.PurseGone'), selected: true });
+        }
+        return chests;
+    }
+
     _onFirstRender(context, options) {
         super._onFirstRender(context, options);
         this.element.addEventListener('dragover', event => event.preventDefault());
@@ -957,6 +996,9 @@ export class PriceTable extends HandlebarsApplicationMixin(ApplicationV2) {
 
     _onRender(context, options) {
         super._onRender(context, options);
+        this.element.querySelector('select[name="purseUuid"]')?.addEventListener('change', event => {
+            this.draft.purseUuid = event.currentTarget.value || null;
+        });
         const toBase = input => Math.max(0, Math.round((Number(input.value) || 0) * HANDFUL));
         this.element.querySelector('[name="unlimitedPurse"]')?.addEventListener('change', event => {
             this.draft.unlimitedPurse = event.currentTarget.checked;
@@ -1054,6 +1096,7 @@ export function registerTrade() {
 
 export const tradeApi = {
     setMerchant,
+    getPurse,
     isMerchant,
     getMerchantConfig,
     unitPrice,

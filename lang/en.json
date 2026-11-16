@@ -136,7 +136,8 @@
                 "MerchantBrokeShort": "The merchant doesn't have enough gold to pay the difference.",
                 "CustomerBroke": "{name} doesn't have the gold to pay {total}.",
                 "CustomerBrokeShort": "Your character doesn't have enough gold to pay the difference.",
-                "Failed": "The trade failed. Check the GM's console. {error}"
+                "Failed": "The trade failed. Check the GM's console. {error}",
+                "PurseMissing": "The chest holding this merchant's gold no longer exists. The GM needs to pick another purse in the price list."
             },
             "Currency": {
                 "coins": {
@@ -180,7 +181,7 @@
                 "UnitHint": "Values in handfuls of gold (10 handfuls = 1 bag, 10 bags = 1 chest). 0 = she doesn't trade the item that way.",
                 "UnitHintCoins": "Values in handfuls of gold (10 coins = 1 handful, 10 handfuls = 1 bag, 10 bags = 1 chest); use decimals for coins. 0 = she doesn't trade the item that way.",
                 "UnlimitedPurse": "Bottomless purse",
-                "PurseHint": "Unchecked, the merchant pays from the gold on her own sheet (refusing what she can't afford) and keeps what she receives. Checked, her gold never changes.",
+                "PurseHint": "Unchecked, the purse pays from its own gold (refusing what it can't afford) and keeps what it receives. Checked, the purse's gold never changes.",
                 "Defaults": "What she pays (buying from players)",
                 "SellDefaults": "What she charges (selling to players)",
                 "DefaultsHint": "Price per unit. Weapons and armor use the item's Tier; consumables and loot items use their rarity in the system's tables (Common = Tier 1 … Legendary = Tier 4).",
@@ -202,7 +203,11 @@
                 "DefaultSaved": "Default price list saved.",
                 "AlreadyListed": "\"{name}\" is already on the list.",
                 "Tier": "Tier {tier}",
-                "Remove": "Remove from the list"
+                "Remove": "Remove from the list",
+                "Purse": "Trade purse",
+                "PurseSelf": "The chest being traded with",
+                "PurseChoiceHint": "Where the gold of each trade comes from and goes to. Pick the merchant's chest so the chests for sale on the scene (generated ones included) sell on her behalf and the money goes to her chest.",
+                "PurseGone": "(deleted chest)"
             }
         }
     }

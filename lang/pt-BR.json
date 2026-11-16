@@ -136,7 +136,8 @@
                 "MerchantBrokeShort": "A lojista não tem ouro suficiente para pagar a diferença.",
                 "CustomerBroke": "{name} não tem ouro para pagar {total}.",
                 "CustomerBrokeShort": "Seu personagem não tem ouro suficiente para pagar a diferença.",
-                "Failed": "A troca falhou. Veja o console do mestre. {error}"
+                "Failed": "A troca falhou. Veja o console do mestre. {error}",
+                "PurseMissing": "O baú que guarda o ouro desta lojista não existe mais. O mestre precisa escolher outra bolsa na tabela de preços."
             },
             "Currency": {
                 "coins": {
@@ -180,7 +181,7 @@
                 "UnitHint": "Valores em punhados de ouro (10 punhados = 1 saco, 10 sacos = 1 baú). 0 = ela não negocia o item daquele jeito.",
                 "UnitHintCoins": "Valores em punhados de ouro (10 moedas = 1 punhado, 10 punhados = 1 saco, 10 sacos = 1 baú); use decimais para moedas. 0 = ela não negocia o item daquele jeito.",
                 "UnlimitedPurse": "Bolsa sem fundo",
-                "PurseHint": "Desmarcado, a lojista paga com o ouro da própria ficha (e recusa o que não pode pagar) e guarda o que recebe. Marcado, o ouro dela nunca muda.",
+                "PurseHint": "Desmarcado, a bolsa paga com o próprio ouro (e recusa o que não pode pagar) e guarda o que recebe. Marcado, o ouro da bolsa nunca muda.",
                 "Defaults": "Quanto ela paga (compra dos jogadores)",
                 "SellDefaults": "Quanto ela cobra (vende aos jogadores)",
                 "DefaultsHint": "Preço por unidade. Armas e armaduras usam o tier do item; consumíveis e itens de loot usam a raridade nas tabelas do sistema (Comum = Tier 1 … Lendário = Tier 4).",
@@ -202,7 +203,11 @@
                 "DefaultSaved": "Tabela de preços padrão salva.",
                 "AlreadyListed": "\"{name}\" já está na tabela.",
                 "Tier": "Tier {tier}",
-                "Remove": "Tirar da tabela"
+                "Remove": "Tirar da tabela",
+                "Purse": "Bolsa da troca",
+                "PurseSelf": "O próprio baú da troca",
+                "PurseChoiceHint": "De onde sai e para onde vai o ouro das trocas. Escolha o baú da lojista para que os baús à venda na cena (inclusive os gerados) vendam em nome dela e o dinheiro vá para o baú dela.",
+                "PurseGone": "(baú apagado)"
             }
         }
     }
