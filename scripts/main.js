@@ -140,6 +140,15 @@ function registerChestSheet() {
             return context;
         }
 
+        /* Players only have Observer access to a merchant, so Foundry disables every field
+           of her sheet, buttons included. The trade counter must stay clickable. */
+        _toggleDisabled(disabled) {
+            super._toggleDisabled(disabled);
+            for (const button of this.element?.querySelectorAll('[data-action="openTradeCounter"]') ?? []) {
+                button.disabled = false;
+            }
+        }
+
         /* A merchant's stock is hers: players see it but can't drag it away. (On newer
            Daggerheart versions the GM would carry out that transfer without asking.) */
         async _onDragStart(event) {
