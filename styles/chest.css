@@ -99,3 +99,227 @@
     width: 4rem;
     flex: none;
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Merchant: sheet header, trade counter and price table                     */
+/* -------------------------------------------------------------------------- */
+
+.loot-chest-sheet .loot-chest-trade {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.35rem;
+}
+
+.loot-chest-sheet .loot-chest-trade button {
+    flex: none;
+    width: auto;
+    padding: 0 0.6rem;
+    white-space: nowrap;
+}
+
+.loot-chest-sheet .loot-chest-trade .hint,
+.dh-lootbox-trade .hint,
+.dh-lootbox-prices .hint {
+    flex-basis: 100%;
+    margin: 0.15rem 0;
+    font-size: 0.8em;
+    font-style: italic;
+    opacity: 0.8;
+}
+
+.dh-lootbox-trade .window-content,
+.dh-lootbox-prices .window-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.dhl-trade,
+.dhl-prices {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.dhl-trade-merchant {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 2px solid #b8860b;
+}
+
+.dhl-trade-merchant img {
+    width: 48px;
+    height: 48px;
+    border: none;
+    object-fit: contain;
+}
+
+.dhl-trade-merchant h2 {
+    margin: 0;
+    border: none;
+    color: #b8860b;
+}
+
+.dhl-trade-lines,
+.dhl-overrides {
+    list-style: none;
+    margin: 0;
+    padding: 0.25rem;
+    min-height: 4rem;
+    max-height: 420px;
+    overflow-y: auto;
+    border: 1px dashed #b8860b88;
+    border-radius: 4px;
+}
+
+.dhl-trade-line {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 3px 4px;
+}
+
+.dhl-trade-line + .dhl-trade-line {
+    border-top: 1px solid #b8860b33;
+}
+
+.dhl-trade-line img {
+    width: 28px;
+    height: 28px;
+    flex: none;
+    border: none;
+}
+
+.dhl-trade-line .dhl-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dhl-trade-line input[type="number"] {
+    width: 4.5rem;
+    flex: none;
+    text-align: center;
+}
+
+.dhl-trade-line .dhl-qty {
+    width: 4.5rem;
+    flex: none;
+    text-align: center;
+}
+
+.dhl-trade-line .dhl-price {
+    flex: none;
+    max-width: 45%;
+    text-align: right;
+    font-size: 0.9em;
+}
+
+.dhl-trade-line.refused .dhl-name,
+.dhl-trade-line.refused .dhl-price {
+    opacity: 0.6;
+    font-style: italic;
+}
+
+.dhl-icon {
+    flex: none;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    line-height: 1;
+}
+
+.dhl-drop-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 3.5rem;
+    padding: 0.5rem;
+    text-align: center;
+    font-style: italic;
+    opacity: 0.75;
+}
+
+.dhl-trade-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.dhl-trade-total {
+    margin: 0;
+    text-align: right;
+}
+
+.dhl-warning {
+    margin: 0;
+    padding: 0.3rem 0.5rem;
+    border-left: 3px solid #c0392b;
+    background: #c0392b22;
+    font-size: 0.9em;
+}
+
+.dhl-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.dhl-buttons button {
+    flex: none;
+    width: auto;
+    padding: 0 0.9rem;
+}
+
+.dhl-buttons .dhl-primary {
+    border-color: #b8860b;
+    font-weight: 600;
+}
+
+.dhl-prices h3 {
+    margin: 0.4rem 0 0;
+    border-bottom: 1px solid #b8860b55;
+    color: #b8860b;
+}
+
+.dhl-prices .dhl-check {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.dhl-defaults {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.dhl-defaults th,
+.dhl-defaults td {
+    padding: 2px 4px;
+    text-align: center;
+    background: none;
+}
+
+.dhl-defaults th[scope="row"] {
+    text-align: left;
+    white-space: nowrap;
+}
+
+.dhl-defaults input[type="number"] {
+    width: 100%;
+    min-width: 3.5rem;
+    text-align: center;
+}
+
+.dh-lootbox-sale ul {
+    margin: 0.25rem 0 0.5rem 1rem;
+    padding: 0;
+}

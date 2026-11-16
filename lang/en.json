@@ -73,6 +73,102 @@
             "Hint": "Check the consumables (from the system compendium) and how many of each. Players drag them from the shop sheet onto their character.",
             "NothingSelected": "No consumables selected.",
             "Created": "Shop \"{name}\" created."
+        },
+        "Trade": {
+            "MerchantLabel": "Merchant — buys items from players",
+            "MerchantOn": "Make merchant",
+            "MerchantOff": "Stop being a merchant",
+            "PriceTableButton": "Price list",
+            "OpenCounter": "Trade counter",
+            "SellHint": "Drag items from your character sheet here to sell them.",
+            "MerchantEnabled": "\"{name}\" is now a merchant. Players can see the sheet but only sell through the counter.",
+            "MerchantDisabled": "\"{name}\" is no longer a merchant. The previous permission was restored.",
+            "CounterTitle": "Counter — {name}",
+            "SellingAs": "Selling as",
+            "NoSeller": "Drag an item from your character sheet to start.",
+            "DropHere": "Drag here the items from your sheet that you want to sell. They only leave your sheet once the sale is confirmed.",
+            "Total": "The merchant pays:",
+            "NoMoney": "nothing",
+            "WontBuy": "Won't buy",
+            "PriceEach": "{total} ({each} each)",
+            "QuantityLabel": "Quantity of {name}",
+            "RemoveLine": "Take off the counter",
+            "Clear": "Clear",
+            "Confirm": "Confirm sale",
+            "Busy": "Waiting for the GM…",
+            "Sold": "{merchant} paid {total} to {seller}.",
+            "Problem": {
+                "NotSellable": "Not for sale",
+                "Equipped": "Unequip it first",
+                "NoneLeft": "None left"
+            },
+            "Warn": {
+                "DropFromSheet": "Drag the item from your character sheet.",
+                "NotYourItem": "You can only sell items from a sheet you own.",
+                "NotSellable": "\"{name}\" is not an inventory item (weapon, armor, consumable or loot).",
+                "OneSeller": "This counter already holds items from {name}. Confirm or clear it before selling as another character."
+            },
+            "Errors": {
+                "NoGM": "No GM connected: a sale needs the GM online.",
+                "Timeout": "The GM didn't answer in time. Nothing was moved.",
+                "Missing": "Could not find the merchant or the character.",
+                "NotMerchant": "This chest is no longer a merchant.",
+                "NotOwner": "You don't own that character.",
+                "NotGM": "Only the GM can complete a sale.",
+                "NothingToSell": "The merchant doesn't buy any of these items.",
+                "MerchantBroke": "The merchant doesn't have the gold to pay {total}.",
+                "MerchantBrokeShort": "The merchant doesn't have enough gold to pay for all of this.",
+                "Failed": "The sale failed. Check the GM's console. {error}"
+            },
+            "Currency": {
+                "coins": {
+                    "One": "coin",
+                    "Other": "coins"
+                },
+                "handfuls": {
+                    "One": "handful",
+                    "Other": "handfuls"
+                },
+                "bags": {
+                    "One": "bag",
+                    "Other": "bags"
+                },
+                "chests": {
+                    "One": "chest",
+                    "Other": "chests"
+                }
+            },
+            "Chat": {
+                "Title": "🤝 Sale to {merchant}",
+                "Line": "{quantity}× {name} — {subtotal}",
+                "Total": "Paid to {seller}: {total}",
+                "Refused": "Refused: {names}"
+            },
+            "Category": {
+                "weapon": "Weapons",
+                "armor": "Armor",
+                "consumable": "Consumables",
+                "loot": "Loot items"
+            },
+            "Prices": {
+                "Title": "Price list — {name}",
+                "UnitHint": "Values in handfuls of gold (10 handfuls = 1 bag, 10 bags = 1 chest). 0 = the merchant won't buy it.",
+                "UnitHintCoins": "Values in handfuls of gold (10 coins = 1 handful, 10 handfuls = 1 bag, 10 bags = 1 chest); use decimals for coins. 0 = the merchant won't buy it.",
+                "UnlimitedPurse": "Bottomless purse",
+                "PurseHint": "Unchecked, the merchant pays from the gold on her own sheet and refuses sales above what she has. Checked, she pays without spending her own gold.",
+                "Defaults": "Default price by type and Tier",
+                "DefaultsHint": "What she pays per unit. Weapons and armor use the item's Tier; consumables and loot items use their rarity in the system's tables (Common = Tier 1 … Legendary = Tier 4).",
+                "Overrides": "Per-item prices",
+                "OverridesHint": "Drag items (from a compendium, the sidebar or a sheet) to give them their own price. It overrides the default.",
+                "DropItems": "Drag items here.",
+                "FillFromStock": "Add her stock",
+                "Filled": "{count} item(s) added to the list.",
+                "Save": "Save",
+                "Saved": "Price list for \"{name}\" saved.",
+                "AlreadyListed": "\"{name}\" is already on the list.",
+                "Tier": "Tier {tier}",
+                "Remove": "Remove from the list"
+            }
         }
     }
 }

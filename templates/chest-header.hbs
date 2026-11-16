@@ -5,5 +5,24 @@
             <h1 class="item-name"><input type="text" name="name" value="{{source.name}}" /></h1>
             <h2 class="label">{{tierLabel}}</h2>
         </div>
+        <div class="loot-chest-trade">
+            {{#if isGM}}
+                <button type="button" data-action="toggleMerchant">
+                    <i class="fa-solid fa-store" aria-hidden="true"></i>
+                    {{#if isMerchant}}{{localize "DHLOOTBOX.Trade.MerchantOff"}}{{else}}{{localize "DHLOOTBOX.Trade.MerchantOn"}}{{/if}}
+                </button>
+                {{#if isMerchant}}
+                    <button type="button" data-action="openPriceTable">
+                        <i class="fa-solid fa-tags" aria-hidden="true"></i> {{localize "DHLOOTBOX.Trade.PriceTableButton"}}
+                    </button>
+                {{/if}}
+            {{/if}}
+            {{#if isMerchant}}
+                <button type="button" data-action="openTradeCounter">
+                    <i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> {{localize "DHLOOTBOX.Trade.OpenCounter"}}
+                </button>
+                {{#unless isGM}}<p class="hint">{{localize "DHLOOTBOX.Trade.SellHint"}}</p>{{/unless}}
+            {{/if}}
+        </div>
     </div>
 </header>

@@ -73,6 +73,102 @@
             "Hint": "Marque os consumíveis (do compêndio do sistema) e a quantidade de cada um. Os jogadores arrastam da ficha da loja para o personagem.",
             "NothingSelected": "Nenhum consumível selecionado.",
             "Created": "Loja \"{name}\" criada."
+        },
+        "Trade": {
+            "MerchantLabel": "Lojista — compra itens dos jogadores",
+            "MerchantOn": "Tornar lojista",
+            "MerchantOff": "Deixar de ser lojista",
+            "PriceTableButton": "Tabela de preços",
+            "OpenCounter": "Balcão de troca",
+            "SellHint": "Arraste itens da ficha do seu personagem para cá para vendê-los.",
+            "MerchantEnabled": "\"{name}\" agora é lojista. Os jogadores veem a ficha, mas só vendem pelo balcão.",
+            "MerchantDisabled": "\"{name}\" deixou de ser lojista. A permissão anterior foi restaurada.",
+            "CounterTitle": "Balcão — {name}",
+            "SellingAs": "Vendendo como",
+            "NoSeller": "Arraste um item da ficha do seu personagem para começar.",
+            "DropHere": "Arraste para cá os itens da sua ficha que quer vender. Eles só saem da ficha quando a venda for confirmada.",
+            "Total": "A lojista paga:",
+            "NoMoney": "nada",
+            "WontBuy": "Não compra",
+            "PriceEach": "{total} ({each} cada)",
+            "QuantityLabel": "Quantidade de {name}",
+            "RemoveLine": "Tirar do balcão",
+            "Clear": "Limpar",
+            "Confirm": "Confirmar venda",
+            "Busy": "Aguardando o mestre…",
+            "Sold": "{merchant} pagou {total} a {seller}.",
+            "Problem": {
+                "NotSellable": "Não está à venda",
+                "Equipped": "Desequipe antes",
+                "NoneLeft": "Sem unidades"
+            },
+            "Warn": {
+                "DropFromSheet": "Arraste o item da ficha do seu personagem.",
+                "NotYourItem": "Você só pode vender itens de uma ficha que é sua.",
+                "NotSellable": "\"{name}\" não é um item de inventário (arma, armadura, consumível ou loot).",
+                "OneSeller": "Este balcão já tem itens de {name}. Confirme ou limpe antes de vender por outro personagem."
+            },
+            "Errors": {
+                "NoGM": "Nenhum mestre conectado: a venda precisa do mestre online.",
+                "Timeout": "O mestre não respondeu a tempo. Nada foi movido.",
+                "Missing": "Não foi possível encontrar a lojista ou o personagem.",
+                "NotMerchant": "Este baú não é mais uma lojista.",
+                "NotOwner": "Você não é dono desse personagem.",
+                "NotGM": "Só o mestre pode concluir uma venda.",
+                "NothingToSell": "A lojista não compra nenhum desses itens.",
+                "MerchantBroke": "A lojista não tem ouro para pagar {total}.",
+                "MerchantBrokeShort": "A lojista não tem ouro suficiente para pagar tudo isso.",
+                "Failed": "A venda falhou. Veja o console do mestre. {error}"
+            },
+            "Currency": {
+                "coins": {
+                    "One": "moeda",
+                    "Other": "moedas"
+                },
+                "handfuls": {
+                    "One": "punhado",
+                    "Other": "punhados"
+                },
+                "bags": {
+                    "One": "saco",
+                    "Other": "sacos"
+                },
+                "chests": {
+                    "One": "baú",
+                    "Other": "baús"
+                }
+            },
+            "Chat": {
+                "Title": "🤝 Venda para {merchant}",
+                "Line": "{quantity}× {name} — {subtotal}",
+                "Total": "Pago a {seller}: {total}",
+                "Refused": "Recusados: {names}"
+            },
+            "Category": {
+                "weapon": "Armas",
+                "armor": "Armaduras",
+                "consumable": "Consumíveis",
+                "loot": "Itens (loot)"
+            },
+            "Prices": {
+                "Title": "Tabela de preços — {name}",
+                "UnitHint": "Valores em punhados de ouro (10 punhados = 1 saco, 10 sacos = 1 baú). 0 = a lojista não compra.",
+                "UnitHintCoins": "Valores em punhados de ouro (10 moedas = 1 punhado, 10 punhados = 1 saco, 10 sacos = 1 baú); use decimais para moedas. 0 = a lojista não compra.",
+                "UnlimitedPurse": "Bolsa sem fundo",
+                "PurseHint": "Desmarcado, a lojista paga com o ouro da própria ficha e recusa vendas acima do que tem. Marcado, ela paga sem gastar o próprio ouro.",
+                "Defaults": "Preço padrão por tipo e tier",
+                "DefaultsHint": "Quanto ela paga por unidade. Armas e armaduras usam o tier do item; consumíveis e itens de loot usam a raridade nas tabelas do sistema (Comum = Tier 1 … Lendário = Tier 4).",
+                "Overrides": "Preços por item",
+                "OverridesHint": "Arraste itens (do compêndio, da barra lateral ou de uma ficha) para dar um preço só a eles. Vale sobre o padrão.",
+                "DropItems": "Arraste itens para cá.",
+                "FillFromStock": "Adicionar o estoque dela",
+                "Filled": "{count} item(ns) adicionado(s) à tabela.",
+                "Save": "Salvar",
+                "Saved": "Tabela de preços de \"{name}\" salva.",
+                "AlreadyListed": "\"{name}\" já está na tabela.",
+                "Tier": "Tier {tier}",
+                "Remove": "Tirar da tabela"
+            }
         }
     }
 }

@@ -1,0 +1,55 @@
+<div class="dhl-trade">
+    <header class="dhl-trade-merchant">
+        <img src="{{merchant.img}}" alt="">
+        <div>
+            <h2>{{merchant.name}}</h2>
+            <p class="hint">
+                {{#if seller}}
+                    {{localize "DHLOOTBOX.Trade.SellingAs"}} <strong>{{seller.name}}</strong>
+                {{else}}
+                    {{localize "DHLOOTBOX.Trade.NoSeller"}}
+                {{/if}}
+            </p>
+        </div>
+    </header>
+
+    <ol class="dhl-trade-lines">
+        {{#each lines}}
+            <li class="dhl-trade-line{{#if refused}} refused{{/if}}">
+                <img src="{{img}}" alt="">
+                <span class="dhl-name">{{name}}</span>
+                {{#if quantifiable}}
+                    <input type="number" name="quantity" value="{{quantity}}" min="1" max="{{max}}" step="1"
+                        data-item-id="{{id}}" aria-label="{{quantityLabel}}">
+                {{else}}
+                    <span class="dhl-qty">1</span>
+                {{/if}}
+                <span class="dhl-price">{{priceLabel}}</span>
+                <button type="button" class="dhl-icon" data-action="removeLine" data-item-id="{{id}}"
+                    data-tooltip="DHLOOTBOX.Trade.RemoveLine" aria-label="{{localize "DHLOOTBOX.Trade.RemoveLine"}}">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+            </li>
+        {{else}}
+            <li class="dhl-drop-hint"><i class="fa-solid fa-hand-holding-hand" aria-hidden="true"></i> {{localize "DHLOOTBOX.Trade.DropHere"}}</li>
+        {{/each}}
+    </ol>
+
+    <footer class="dhl-trade-footer">
+        <p class="dhl-trade-total">{{localize "DHLOOTBOX.Trade.Total"}} <strong>{{totalLabel}}</strong></p>
+        {{#if broke}}<p class="dhl-warning">{{localize "DHLOOTBOX.Trade.Errors.MerchantBrokeShort"}}</p>{{/if}}
+        {{#unless hasGM}}<p class="dhl-warning">{{localize "DHLOOTBOX.Trade.Errors.NoGM"}}</p>{{/unless}}
+        <div class="dhl-buttons">
+            <button type="button" data-action="clear" {{#unless hasLines}}disabled{{/unless}}>
+                <i class="fa-solid fa-broom" aria-hidden="true"></i> {{localize "DHLOOTBOX.Trade.Clear"}}
+            </button>
+            <button type="button" class="dhl-primary" data-action="confirm" {{#unless canConfirm}}disabled{{/unless}}>
+                {{#if busy}}
+                    <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> {{localize "DHLOOTBOX.Trade.Busy"}}
+                {{else}}
+                    <i class="fa-solid fa-handshake" aria-hidden="true"></i> {{localize "DHLOOTBOX.Trade.Confirm"}}
+                {{/if}}
+            </button>
+        </div>
+    </footer>
+</div>

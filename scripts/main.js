@@ -15,6 +15,8 @@
  * the item" mechanism.
  */
 
+import { PriceTable, TradeCounter, isMerchant, registerTrade, setMerchant, tradeApi } from './trade.js';
+
 const MODULE_ID = 'dh-lootbox';
 const CHEST_ICON = 'systems/daggerheart/assets/icons/documents/items/open-treasure-chest.svg';
 
@@ -94,7 +96,14 @@ function registerChestSheet() {
     class LootChestSheet extends Party {
         static DEFAULT_OPTIONS = foundry.utils.mergeObject(
             Party.DEFAULT_OPTIONS,
-            { classes: ['party', 'loot-chest-sheet'] },
+            {
+                classes: ['party', 'loot-chest-sheet'],
+                actions: {
+                    toggleMerchant: LootChestSheet.#onToggleMerchant,
+                    openPriceTable: LootChestSheet.#onOpenPriceTable,
+                    openTradeCounter: LootChestSheet.#onOpenTradeCounter
+                }
+            },
             { inplace: false }
         );
 
@@ -118,13 +127,54 @@ function registerChestSheet() {
             context = await super._preparePartContext(partId, context, options);
             if (partId === 'header') {
                 const tier = this.document.getFlag(MODULE_ID, 'tier');
-                context.tierLabel = this.document.getFlag(MODULE_ID, 'isShop')
+                context.isMerchant = isMerchant(this.document);
+                context.isGM = game.user.isGM;
+                context.tierLabel = context.isMerchant
+                    ? game.i18n.localize('DHLOOTBOX.Trade.MerchantLabel')
+                    : this.document.getFlag(MODULE_ID, 'isShop')
                     ? game.i18n.localize('DHLOOTBOX.Shop.HeaderLabel')
                     : tier
                     ? getDefaultChestName(tier)
                     : game.i18n.localize('DHLOOTBOX.DefaultChestHeaderFallback');
             }
             return context;
+        }
+
+        /* A merchant's stock is hers: players see it but can't drag it away. (On newer
+           Daggerheart versions the GM would carry out that transfer without asking.) */
+        async _onDragStart(event) {
+            if (isMerchant(this.document) && !game.user.isGM) {
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+            return super._onDragStart(event);
+        }
+
+        /* Items a player drops on a merchant go to the trade counter instead of being given away. */
+        async _onDrop(event) {
+            if (!isMerchant(this.document) || game.user.isGM) return super._onDrop(event);
+            event.preventDefault();
+            event.stopPropagation();
+            const data = foundry.applications.ux.TextEditor.implementation.getDragEventData(event);
+            if (data?.type !== 'Item' || !data.uuid) return;
+            const item = await fromUuid(data.uuid);
+            if (item?.actor?.uuid === this.document.uuid) return;
+            await TradeCounter.open(this.document, { item });
+        }
+
+        static async #onToggleMerchant() {
+            const enable = !isMerchant(this.document);
+            await setMerchant(this.document, enable);
+            if (enable) PriceTable.open(this.document);
+        }
+
+        static #onOpenPriceTable() {
+            PriceTable.open(this.document);
+        }
+
+        static #onOpenTradeCounter() {
+            TradeCounter.open(this.document);
         }
     }
 
@@ -759,10 +809,11 @@ async function ensureHotbarMacro(name, img, command) {
 Hooks.once('init', () => {
     if (game.system.id !== 'daggerheart') return;
     registerChestSheet();
+    registerTrade();
 });
 
 Hooks.once('ready', async () => {
-    if (game.system.id !== 'daggerheart' || !game.user.isGM) return;
+    if (game.system.id !== 'daggerheart') return;
 
     const moduleData = game.modules.get(MODULE_ID);
     if (!moduleData) {
@@ -779,8 +830,11 @@ Hooks.once('ready', async () => {
         getDiceFormula,
         TIER_DEFAULTS,
         openShopDialog,
-        generateConsumableShop
+        generateConsumableShop,
+        ...tradeApi
     };
+
+    if (!game.user.isGM) return;
 
     // Create (once) convenience macros on the GM's hotbar.
     await ensureHotbarMacro(

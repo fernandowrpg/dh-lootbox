@@ -1,0 +1,62 @@
+<div class="dhl-prices">
+    <p class="hint">{{unitHint}}</p>
+
+    <label class="dhl-check">
+        <input type="checkbox" name="unlimitedPurse" {{checked unlimitedPurse}}>
+        {{localize "DHLOOTBOX.Trade.Prices.UnlimitedPurse"}}
+    </label>
+    <p class="hint">{{localize "DHLOOTBOX.Trade.Prices.PurseHint"}}</p>
+
+    <h3>{{localize "DHLOOTBOX.Trade.Prices.Defaults"}}</h3>
+    <p class="hint">{{localize "DHLOOTBOX.Trade.Prices.DefaultsHint"}}</p>
+    <table class="dhl-defaults">
+        <thead>
+            <tr>
+                <th></th>
+                {{#each tiers}}<th scope="col">{{this}}</th>{{/each}}
+            </tr>
+        </thead>
+        <tbody>
+            {{#each categories}}
+                <tr>
+                    <th scope="row">{{label}}</th>
+                    {{#each cells}}
+                        <td>
+                            <input type="number" min="0" step="{{../../step}}" value="{{value}}"
+                                data-default-type="{{../type}}" data-tier-index="{{index}}" aria-label="{{aria}}">
+                        </td>
+                    {{/each}}
+                </tr>
+            {{/each}}
+        </tbody>
+    </table>
+
+    <h3>{{localize "DHLOOTBOX.Trade.Prices.Overrides"}}</h3>
+    <p class="hint">{{localize "DHLOOTBOX.Trade.Prices.OverridesHint"}}</p>
+    <ol class="dhl-overrides">
+        {{#each overrides}}
+            <li class="dhl-trade-line">
+                <img src="{{img}}" alt="">
+                <span class="dhl-name">{{name}}</span>
+                <input type="number" min="0" step="{{../step}}" value="{{value}}" data-override-index="{{index}}"
+                    aria-label="{{name}}">
+                <span class="dhl-price">{{label}}</span>
+                <button type="button" class="dhl-icon" data-action="removeOverride" data-index="{{index}}"
+                    data-tooltip="DHLOOTBOX.Trade.Prices.Remove" aria-label="{{localize "DHLOOTBOX.Trade.Prices.Remove"}}">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+            </li>
+        {{else}}
+            <li class="dhl-drop-hint"><i class="fa-solid fa-tags" aria-hidden="true"></i> {{localize "DHLOOTBOX.Trade.Prices.DropItems"}}</li>
+        {{/each}}
+    </ol>
+
+    <div class="dhl-buttons">
+        <button type="button" data-action="fillFromStock">
+            <i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i> {{localize "DHLOOTBOX.Trade.Prices.FillFromStock"}}
+        </button>
+        <button type="submit" class="dhl-primary">
+            <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> {{localize "DHLOOTBOX.Trade.Prices.Save"}}
+        </button>
+    </div>
+</div>
