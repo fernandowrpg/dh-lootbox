@@ -55,12 +55,19 @@ jobs:
           mkdir dist
           git archive --format=zip -o dist/dh-lootbox.zip HEAD
           cp module.json dist/
+          # Notes come from the "## X.Y.Z" section of CHANGELOG.md (written in Portuguese).
+          awk -v v="${{ steps.version.outputs.version }}" '
+            /^## / { inside = ($2 == v); next }
+            inside
+          ' CHANGELOG.md | sed -e '/./,$!d' > dist/notes.md
+          if [ ! -s dist/notes.md ]; then
+            echo "::error file=CHANGELOG.md::Faltou a seção \"## ${{ steps.version.outputs.version }}\" no CHANGELOG.md"
+            exit 1
+          fi
           previous=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || true)
-          range=${previous:+$previous..}HEAD
-          git log --no-merges --format='- %s' "$range" > dist/notes.md
           if [ -n "$previous" ]; then
-            echo "" >> dist/notes.md
-            echo "**Full changelog:** https://github.com/${{ github.repository }}/compare/$previous...${{ steps.version.outputs.tag }}" >> dist/notes.md
+            printf '\n**Todas as mudanças:** https://github.com/%s/compare/%s...%s\n' \
+              "${{ github.repository }}" "$previous" "${{ steps.version.outputs.tag }}" >> dist/notes.md
           fi
 
       - name: Create release
