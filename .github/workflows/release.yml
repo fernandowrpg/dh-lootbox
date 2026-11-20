@@ -1,0 +1,75 @@
+name: Release
+
+# Publishes a GitHub release whenever the version in module.json changes on main.
+# The release carries module.json and dh-lootbox.zip (the repo at that commit, files at the
+# zip root), which is what the manifest/download URLs in module.json point to.
+
+on:
+  push:
+    branches: [main]
+    paths: [module.json]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: version
+        run: |
+          version=$(jq -r .version module.json)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check that the release does not exist yet
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.version.outputs.tag }}" > /dev/null 2>&1; then
+            echo "Release ${{ steps.version.outputs.tag }} already exists, nothing to do."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check that the changelog URL matches the version
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          changelog=$(jq -r .changelog module.json)
+          case "$changelog" in
+            *"/tag/${{ steps.version.outputs.tag }}") ;;
+            *) echo "::error file=module.json::changelog should end in /tag/${{ steps.version.outputs.tag }} (is $changelog)"; exit 1 ;;
+          esac
+
+      - name: Build package and notes
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          mkdir dist
+          git archive --format=zip -o dist/dh-lootbox.zip HEAD
+          cp module.json dist/
+          previous=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || true)
+          range=${previous:+$previous..}HEAD
+          git log --no-merges --format='- %s' "$range" > dist/notes.md
+          if [ -n "$previous" ]; then
+            echo "" >> dist/notes.md
+            echo "**Full changelog:** https://github.com/${{ github.repository }}/compare/$previous...${{ steps.version.outputs.tag }}" >> dist/notes.md
+          fi
+
+      - name: Create release
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            dist/dh-lootbox.zip dist/module.json \
+            --target "${{ github.sha }}" \
+            --title "${{ steps.version.outputs.tag }}" \
+            --notes-file dist/notes.md
