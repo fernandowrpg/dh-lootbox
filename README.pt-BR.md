@@ -79,7 +79,12 @@ a diferença em ouro muda de mão.
 
 - **Tabela padrão** (botão **"Tabela padrão"** em qualquer tabela de preços, ou
   `api.openDefaultPriceTable()`): vale para todo baú à venda sem tabela própria.
-  Assim os baús gerados já chegam prontos para negociar.
+  Assim os baús gerados já chegam prontos para negociar. Enquanto você não a
+  salvar, ela vem preenchida pela tabela "Custos Médios" do livro básico
+  (cobra: armas/armaduras/loot 3 punhados · 1,5 bolsa · 7,5 bolsas · 1,5 baú
+  nos Tiers 1–4; consumíveis 2 punhados · 5 punhados · 2 bolsas · 5 bolsas;
+  paga cerca de metade). O livro não precifica consumíveis e loot, então esses
+  valores são uma sugestão.
 - **Tabela de preços** de um baú (botão no cabeçalho dele): salvar cria uma
   tabela só para aquele baú; **"Usar a tabela padrão"** volta para a padrão.
 - Cada tabela tem duas grades, **quanto ela paga** (compra dos jogadores) e

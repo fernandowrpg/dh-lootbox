@@ -78,7 +78,11 @@ confirms, the items move both ways and only the difference in gold changes hands
 
 - **Default price list** (button **"Default list"** in any price list window,
   or `api.openDefaultPriceTable()`): used by every chest for sale that has no
-  list of its own, so generated chests are ready to trade.
+  list of its own, so generated chests are ready to trade. Until you save it,
+  it comes pre-filled from the core book's "Average Costs" table (charges:
+  weapons/armor/loot 3 handfuls · 1.5 bags · 7.5 bags · 1.5 chests for Tiers
+  1–4; consumables 2 handfuls · 5 handfuls · 2 bags · 5 bags; she pays about
+  half). The book leaves consumables and loot unpriced, so those are a suggestion.
 - **Price list** of a chest (button in its header): saving it gives that chest
   its own list; **"Use the default list"** goes back to the default one.
 - Each list has two grids, **what she pays** (buying from players) and **what

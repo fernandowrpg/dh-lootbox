@@ -179,12 +179,41 @@ function normalizeConfig(raw = {}) {
     };
 }
 
+/**
+ * Out-of-the-box price list, in coins, used until the GM saves a default list of their own.
+ * Weapons and armor follow the core book's "Average Costs" table (ch. 3, "Your World's
+ * Economy"): Tier 1 1–5 handfuls, Tier 2 1–2 bags, Tier 3 5–10 bags, Tier 4 1–2 chests —
+ * she charges about the middle of each range. The book leaves treasure unpriced, so loot uses
+ * the same scale and consumables (less powerful, handed out often) a cheaper one. She pays
+ * players roughly half of what she charges.
+ */
+const BOOK_DEFAULT_PRICES = {
+    unlimitedPurse: false,
+    purseUuid: null,
+    sellDefaults: {
+        weapon: [30, 150, 750, 1500],
+        armor: [30, 150, 750, 1500],
+        loot: [30, 150, 750, 1500],
+        consumable: [20, 50, 200, 500]
+    },
+    defaults: {
+        weapon: [20, 80, 400, 800],
+        armor: [20, 80, 400, 800],
+        loot: [20, 80, 400, 800],
+        consumable: [10, 30, 100, 250]
+    },
+    overrides: []
+};
+
 function worldDefaultPrices() {
+    let stored = null;
     try {
-        return game.settings.get(MODULE_ID, DEFAULT_PRICES_SETTING) ?? {};
+        stored = game.settings.get(MODULE_ID, DEFAULT_PRICES_SETTING);
     } catch {
-        return {};
+        /* setting not registered yet */
     }
+    // Nothing saved yet (or an old empty value): start from the book's prices.
+    return stored && stored.defaults ? stored : foundry.utils.deepClone(BOOK_DEFAULT_PRICES);
 }
 
 /** The merchant's price list: her own, or the world's default when she has none. */
@@ -892,6 +921,7 @@ export class PriceTable extends HandlebarsApplicationMixin(ApplicationV2) {
             removeOverride: PriceTable.#onRemoveOverride,
             fillFromStock: PriceTable.#onFillFromStock,
             useDefault: PriceTable.#onUseDefault,
+            bookPrices: PriceTable.#onBookPrices,
             editDefault: PriceTable.#onEditDefault
         }
     };
@@ -1062,6 +1092,15 @@ export class PriceTable extends HandlebarsApplicationMixin(ApplicationV2) {
         await this.merchant.update({ [`flags.${MODULE_ID}.-=${CONFIG_FLAG}`]: null });
         ui.notifications.info(F('Prices.UsingDefault', { name: this.merchant.name }));
         await this.close();
+    }
+
+    /** Refills both grids with the core book's prices (kept per-item prices and purse untouched).
+     *  Nothing is stored until the list is saved. */
+    static #onBookPrices() {
+        this.draft.defaults = readGrid(BOOK_DEFAULT_PRICES.defaults);
+        this.draft.sellDefaults = readGrid(BOOK_DEFAULT_PRICES.sellDefaults);
+        ui.notifications.info(L('Prices.BookPricesApplied'));
+        this.render();
     }
 
     static #onEditDefault() {
